@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\DefectInspectingItem;
+use App\DefectInspectingItem;
 use Illuminate\Http\Request;
 use App\Inspecting;
 use App\InspectingItem;
