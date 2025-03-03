@@ -149,6 +149,23 @@ class KartuProsesDyeingController extends Controller
         return response()->json($result);
     }
 
+    public function getKartuProsesDyeingById($id)
+    {
+       $kartuProsesDyeing = KartuProsesDyeing::with('kartuProsesDyeingItem')->find($id);
+
+        if ($kartuProsesDyeing) {
+            return response()->json([
+                'success' => true,
+                'data' => $kartuProsesDyeing
+            ]);
+        } else {
+            return response()->json([
+                'success' => false,
+                'message' => 'Data not found!'
+            ]);
+        }
+    }
+
 
 
     public function getKartuProsesPrintingById($id)

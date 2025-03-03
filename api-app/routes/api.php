@@ -30,6 +30,7 @@ Route::prefix('v1')->group(function () {
 
     Route::group(['prefix' => 'dashboard', 'middleware' => 'api'], function () {
         Route::get('index', 'DashboardController@index');
+        Route::get('grafik', 'DashboardController@grafik');
         Route::get('get-kartu-dyeing', 'DashboardController@kartuDyeing');
         Route::get('get-kartu-printing', 'DashboardController@kartuPrinting');
     });
@@ -60,6 +61,7 @@ Route::prefix('v1')->group(function () {
         Route::get('get-inspecting/{id}', 'InspectingController@index');
         Route::get('get-inspecting-mkl-bj/{id}', 'InspectingController@indexMklbj');
         Route::put('get-inspecting/update/{id}', 'InspectingController@update');
+        Route::put('kalkukasi/{id}', 'InspectingController@kalkulasi');
         Route::put('update-inspecting/{id}', 'InspectingController@updateInspecting');
         Route::put('update-inspecting-mklbj/{id}', 'InspectingController@updateInspectingMklbj');
         Route::put('update-inspecting-mklbj/item/{id}', 'InspectingController@updateInspectingMklbjItem');
@@ -74,5 +76,9 @@ Route::prefix('v1')->group(function () {
         Route::post('store-printing-inspecting', 'DashboardController@storePrinting');
         Route::post('add-inspect-result', 'DashboardController@storeItem');
         Route::post('add-inspect-mklbj-result', 'DashboardController@storeItemMklbj');
+    });
+
+    Route::group(['prefix' => 'greige', 'middleware' => 'api'], function () {
+        Route::get('rekap-stock-greige', 'GreigeController@rekapStockGreige');
     });
 });

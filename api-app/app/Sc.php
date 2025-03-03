@@ -60,7 +60,7 @@ class Sc extends Model
 
     public function customer(): BelongsTo
     {
-        return $this->belongsTo(MstCustomer::class, 'cust_id');
+        return $this->belongsTo(MstCustomer::class, 'cust_id', 'id');
     }
 
     public function bankAcct(): BelongsTo

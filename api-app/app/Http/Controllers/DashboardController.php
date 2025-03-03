@@ -109,6 +109,97 @@ class DashboardController extends Controller
         }
     }
 
+    public function grafik()
+    {
+        try {
+            $token = request()->header('Authorization');
+            $token = str_replace('Bearer ', '', $token);
+
+            $users = User::where('verification_token', $token)->first();
+            $kartuProsesDyeing = KartuProsesDyeing::with('wo','woColor','mo','moColor','sc','scGreige')->limit(100)->get();
+            $kartuProsesPrinting = KartuProsesPrinting::with('wo','woColor','mo','moColor','sc','scGreige')->limit(100)->get();
+
+            $myInspecting = Inspecting::with([
+                'sc',
+                'scGreige',
+                'mo',
+                'wo',
+                'kartuProcessDyeing',
+                'kartuProcessPrinting',
+                'createdBy',
+                'updatedBy',
+                'approvedBy',
+                'deliveredBy',
+                'k3l',
+                'inspectingItem.defect_item'
+            ])->where('created_by', $users->id)->orderBy('created_at', 'desc')->limit(5)->get();
+
+            $countKartuDyeing = KartuProsesDyeing::whereHas('mo', function($q){
+                $q->where('process', 1)
+                ->whereYear('date', date('Y'));
+            })->count();
+            $countKartuPrinting = KartuProsesDyeing::whereHas('mo', function($q){
+                $q->where('process', 2);
+            })->count();
+            $countMyInspecting = Inspecting::where('created_by', $users->id)
+                ->whereYear('tanggal_inspeksi', date('Y'))
+                ->whereMonth('tanggal_inspeksi', date('m'))
+                ->count() + InspectingMklbj::where('created_by', $users->id)
+                ->whereYear('tgl_inspeksi', date('Y'))
+                ->whereMonth('tgl_inspeksi', date('m'))
+                ->count();
+
+            $inspectingsPerYear = [];
+            for ($month = 1; $month <= 12; $month++) {
+                $countInspecting = Inspecting::where('created_by', $users->id)
+                    ->whereYear('tanggal_inspeksi', date('Y'))
+                    ->whereMonth('tanggal_inspeksi', $month)
+                    ->count();
+
+                $countInspectingMklbj = InspectingMklbj::where('created_by', $users->id)
+                    ->whereYear('tgl_inspeksi', date('Y'))
+                    ->whereMonth('tgl_inspeksi', $month)
+                    ->count();
+
+                $inspectingsPerYear[$month] = $countInspecting + $countInspectingMklbj;
+            }
+
+            $recentKartuProsesDyeing = Inspecting::with([
+                'sc',
+                'scGreige',
+                'mo',
+                'wo',
+                'kartuProcessDyeing',
+                'kartuProcessPrinting',
+                'createdBy',
+                'updatedBy',
+                'approvedBy',
+                'deliveredBy',
+                'k3l',
+                'inspectingItem.defect_item'
+            ])->where('created_by', $users->id)
+                ->orderBy('created_at', 'desc')
+                ->limit(5)
+                ->get();
+
+            return response()->json([
+                'users' => $users,
+                'kartu_proses_dyeing' => $kartuProsesDyeing,
+                'kartu_proses_printing' => $kartuProsesPrinting,
+                'count_kartu_dyeing' => $countKartuDyeing,
+                'count_kartu_printing' => $countKartuPrinting,
+                'count_my_inspecting' => $countMyInspecting,
+                'recent_kartu_proses_dyeing' => $recentKartuProsesDyeing,
+                'inspectings_per_year' => $inspectingsPerYear,
+                'my_inspecting' => $myInspecting
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
 
 
     public function kartuDyeing(Request $request)

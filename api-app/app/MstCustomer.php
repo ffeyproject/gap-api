@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class MstCustomer extends Model
 {
-    use HasFactory;
+    //use HasFactory;
 
     protected $table = 'mst_customer';
 

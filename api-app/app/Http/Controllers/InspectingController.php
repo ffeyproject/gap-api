@@ -14,6 +14,7 @@ use App\MstKodeDefect;
 use App\User;
 use App\Wo;
 use App\WoColor;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
 
@@ -47,11 +48,11 @@ class InspectingController extends Controller
 
             // Fetch the inspecting data with the associated relationships
             $inspecting = Inspecting::with([
-                'sc',
+                'sc.customer',
                 'scGreige',
                 'mo',
                 'wo',
-                'wo.greige',
+                'wo.greige.GreigeGroup',
                 'kartuProcessDyeing',
                 'kartuProcessDyeing.kartuProsesDyeingItem.stock',
                 'kartuProcessPrinting',
@@ -141,7 +142,34 @@ class InspectingController extends Controller
         }
     }
 
+   public function kalkulasi(Request $request, $id)
+{
+    // Validasi request langsung dari array utama
+    $request->validate([
+        '*.nilai_poin' => 'required|numeric',
+        '*.id' => 'required|array',
+        '*.id.*.inspecting_item_id' => 'required|integer',
+    ]);
 
+    // Loop melalui setiap item dalam array request
+    foreach ($request->all() as $item) {
+        foreach ($item['id'] as $inspectItem) {
+            $inspect = InspectingItem::where('id', $inspectItem['inspecting_item_id'])->first();
+
+            if ($inspect) {
+                // Menentukan nilai grade berdasarkan nilai_poin
+                $inspect->grade = ($item['nilai_poin'] < 28) ? 1 : 2;
+                $inspect->save();
+            }
+        }
+    }
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Data berhasil diperbarui'
+    ]);
+    return response()->json(['message' => 'Data berhasil diperbarui'], 200);
+}
 
     public function show($id)
     {
@@ -265,11 +293,13 @@ class InspectingController extends Controller
                 ]);
             }
 
+
             return response()->json([
                 'success' => true,
                 'message' => 'Data Inspecting berhasil diperbarui',
                 'data' => $inspecting->load('defect_item'),
             ]);
+
         } catch (\Exception $e) {
             Log::error('Exception: ' . $e->getMessage());
             return response()->json([
@@ -279,6 +309,310 @@ class InspectingController extends Controller
             ], 500);
         }
     }
+
+//     public function update(Request $request, $id)
+// {
+//     try {
+//         DB::beginTransaction();
+//         // Validasi data yang dikirimkan
+//         $validator = Validator::make($request->all(), [
+//             'qty' => 'required|numeric',
+//             'grade' => 'required',
+//             'join_piece' => 'nullable',
+//             'defect' => 'nullable|array',
+//             'stock_id' => 'nullable',
+//             'qty_bit' => 'nullable|numeric',
+//             'lot_no' => 'nullable',
+//             'gsm_item' => 'nullable',
+//             'defect.*.mst_kode_defect_id' => 'nullable|exists:mst_kode_defect,id',
+//         ]);
+
+//         if ($validator->fails()) {
+//             return response()->json([
+//                 'success' => false,
+//                 'message' => 'Validasi data gagal',
+//                 'errors' => $validator->errors(),
+//             ], 422);
+//         }
+
+//         $validatedData = $validator->validated();
+//         $joinPiece = !empty($validatedData['join_piece']) ? $validatedData['join_piece'] : null;
+
+//         $inspecting = InspectingItem::find($id);
+
+//         if (!$inspecting) {
+//             return response()->json([
+//                 'success' => false,
+//                 'message' => 'Data Inspecting tidak ditemukan',
+//             ], 404);
+//         }
+
+//         $inspectingItem = InspectingItem::updateOrCreate(
+//             [
+//                 'id' => $inspecting->id,
+//             ],
+//             [
+//                 'grade' => $validatedData['grade'] ?? '-',
+//                 'join_piece' => $joinPiece,
+//                 'qty' => (int) $validatedData['qty'],
+//                 'note' => null,
+//                 'qty_sum' => null,
+//                 'is_head' => 0,
+//                 'qr_code' => 'INS-' . $inspecting->id . '-' . (InspectingItem::latest('id')->first()->id + 1),
+//                 'qty_count' => 0,
+//                 'qr_code_desc' => null,
+//                 'qr_print_at' => null,
+//                 'stock_id' => $validatedData['stock_id'] ?? '',
+//                 'qty_bit' => $validatedData['qty_bit'] ?? null,
+//                 'lot_no' => $validatedData['lot_no'] ?? null,
+//                 'gsm_item' => $validatedData['gsm_item'] ?? null
+//             ]
+//         );
+
+//         // Proses defect
+//         $defectIdsToUpdate = [];
+//         if (isset($validatedData['defect']) && is_array($validatedData['defect']) && count($validatedData['defect']) > 0) {
+//             foreach ($validatedData['defect'] as $defect) {
+//                 if (isset($defect['id'])) {
+//                     $defectIdsToUpdate[] = $defect['id'];
+//                 }
+//             }
+//         }
+
+//         // Hapus defect yang tidak ada dalam array defect yang dikirimkan
+//         DefectInspectingItem::where('inspecting_item_id', $inspecting->id)
+//             ->whereNotIn('id', $defectIdsToUpdate)
+//             ->delete();
+
+//         // Update atau Tambah defect baru
+//         foreach ($validatedData['defect'] ?? [] as $defect) {
+//             if (isset($defect['id'])) {
+//                 $existingDefect = DefectInspectingItem::find($defect['id']);
+//                 if ($existingDefect) {
+//                     $existingDefect->update([
+//                         'mst_kode_defect_id' => $defect['mst_kode_defect_id'] ?? null,
+//                         'meterage' => $defect['meterage'] ?? null,
+//                         'point' => $defect['point'] ?? null,
+//                     ]);
+//                 }
+//             } else {
+//                 DefectInspectingItem::create([
+//                     'inspecting_item_id' => $inspecting->id,
+//                     'mst_kode_defect_id' => $defect['mst_kode_defect_id'],
+//                     'meterage' => $defect['meterage'] ?? null,
+//                     'point' => $defect['point'] ?? null,
+//                 ]);
+//             }
+//         }
+
+//         if (isset($validatedData['no_lot'])) {
+//             $inspectingItem->update([
+//                 'no_lot' => $validatedData['no_lot']
+//             ]);
+//         }
+
+
+//         // Ambil semua item berdasarkan inspecting_id
+//     $allItems = InspectingItem::where('inspecting_id', $inspecting->id)->get();
+
+//     foreach ($allItems as $item) {
+//         // Ambil semua item yang memiliki join_piece yang sama dan urutkan berdasarkan ID
+//         $itemsWithSameJoinPiece = InspectingItem::where('join_piece', $item->join_piece)
+//             ->where('inspecting_id', $inspecting->id)
+//             ->orderBy('id') // Urutkan berdasarkan ID terkecil
+//             ->get();
+
+//         if ($itemsWithSameJoinPiece->isNotEmpty()) {
+//             // Ambil item pertama sebagai is_head
+//             $isHeadItem = $itemsWithSameJoinPiece->first();
+
+//             // Hitung total qty untuk join_piece yang sama
+//             $totalQtySum = $itemsWithSameJoinPiece->sum('qty');
+
+//             foreach ($itemsWithSameJoinPiece as $i) {
+//                 $i->update([
+//                     'is_head' => ($i->id === $isHeadItem->id) ? 1 : 0,
+//                     'qty_sum' => ($i->id === $isHeadItem->id) ? $totalQtySum : null,
+//                     'qty_count' => ($i->id === $isHeadItem->id) ? $itemsWithSameJoinPiece->count() : 0,
+//                     'qr_code' => !empty($i->qr_code) ? $i->qr_code : 'INS-' . $i->inspecting_id . '-' . $i->id,
+//                 ]);
+//             }
+//         }
+//     }
+
+//     DB::commit();
+
+
+
+//             return response()->json([
+//                 'success' => true,
+//                 'message' => 'Data Inspecting berhasil diperbarui',
+//                 'data' => $inspecting->load('defect_item'),
+//             ]);
+//         } catch (\Exception $e) {
+//             Log::error('Exception: ' . $e->getMessage());
+//             return response()->json([
+//                 'success' => false,
+//                 'message' => 'Terjadi kesalahan saat memperbarui data',
+//                 'error' => $e->getMessage(),
+//             ], 500);
+//         }
+// }
+
+
+// public function update(Request $request, $id)
+// {
+//     try {
+//         DB::beginTransaction();
+
+//         // Validasi data
+//         $validator = Validator::make($request->all(), [
+//             'qty' => 'required|numeric',
+//             'grade' => 'required',
+//             'join_piece' => 'nullable',
+//             'defect' => 'nullable|array',
+//             'stock_id' => 'nullable',
+//             'qty_bit' => 'nullable|numeric',
+//             'lot_no' => 'nullable',
+//             'gsm_item' => 'nullable',
+//             'defect.*.mst_kode_defect_id' => 'nullable|exists:mst_kode_defect,id',
+//         ]);
+
+//         if ($validator->fails()) {
+//             return response()->json([
+//                 'success' => false,
+//                 'message' => 'Validasi data gagal',
+//                 'errors' => $validator->errors(),
+//             ], 422);
+//         }
+
+//         $validatedData = $validator->validated();
+//         $joinPiece = $validatedData['join_piece'] ?? null;
+
+//         // Ambil data berdasarkan ID
+//         $inspecting = InspectingItem::find($id);
+
+//         if (!$inspecting) {
+//             return response()->json([
+//                 'success' => false,
+//                 'message' => 'Data Inspecting tidak ditemukan',
+//             ], 404);
+//         }
+
+//         // Update data utama
+//         $inspecting->update([
+//             'grade' => $validatedData['grade'],
+//             'join_piece' => $joinPiece,
+//             'qty' => (int) $validatedData['qty'],
+//             'stock_id' => $validatedData['stock_id'] ?? '',
+//             'qty_bit' => $validatedData['qty_bit'] ?? null,
+//             'lot_no' => $validatedData['lot_no'] ?? null,
+//             'gsm_item' => $validatedData['gsm_item'] ?? null
+//         ]);
+
+//         // **PROSES DEFECT**
+//         $defectIdsToUpdate = [];
+//         if (!empty($validatedData['defect'])) {
+//             foreach ($validatedData['defect'] as $defect) {
+//                 if (!empty($defect['id'])) {
+//                     $defectIdsToUpdate[] = $defect['id'];
+//                     DefectInspectingItem::where('id', $defect['id'])
+//                         ->update([
+//                             'mst_kode_defect_id' => $defect['mst_kode_defect_id'] ?? null,
+//                             'meterage' => $defect['meterage'] ?? null,
+//                             'point' => $defect['point'] ?? null,
+//                         ]);
+//                 } else {
+//                     DefectInspectingItem::create([
+//                         'inspecting_item_id' => $inspecting->id,
+//                         'mst_kode_defect_id' => $defect['mst_kode_defect_id'],
+//                         'meterage' => $defect['meterage'] ?? null,
+//                         'point' => $defect['point'] ?? null,
+//                     ]);
+//                 }
+//             }
+//         }
+
+//         // Hapus defect yang tidak termasuk dalam update
+//         DefectInspectingItem::where('inspecting_item_id', $inspecting->id)
+//             ->whereNotIn('id', $defectIdsToUpdate)
+//             ->delete();
+
+//         // **UPDATE JOIN_PIECE & QTY_SUM**
+//         if ($joinPiece) {
+//             // Ambil semua item dengan join_piece yang sama
+//             $itemsWithSameJoinPiece = InspectingItem::where('join_piece', $joinPiece)
+//                 ->where('inspecting_id', $inspecting->inspecting_id)
+//                 ->orderBy('id')
+//                 ->get();
+
+//             if ($itemsWithSameJoinPiece->isNotEmpty()) {
+//                 // Item pertama sebagai `is_head`
+//                 $isHeadItem = $itemsWithSameJoinPiece->first();
+
+//                 // Hitung total qty untuk join_piece yang sama
+//                 $totalQtySum = $itemsWithSameJoinPiece->sum('qty');
+
+//                 foreach ($itemsWithSameJoinPiece as $item) {
+//                     $item->update([
+//                         'is_head' => ($item->id === $isHeadItem->id) ? 1 : 0,
+//                         'qty_sum' => ($item->id === $isHeadItem->id) ? $totalQtySum : null,
+//                         'qty_count' => ($item->id === $isHeadItem->id) ? $itemsWithSameJoinPiece->count() : 0,
+//                         'qr_code' => $item->qr_code ?: 'INS-' . $item->inspecting_id . '-' . $item->id,
+//                     ]);
+//                 }
+//             }
+//         } else {
+//             // Jika join_piece dihapus, cek apakah ada item lain dengan join_piece yang sama
+//             $remainingItems = InspectingItem::where('join_piece', $inspecting->join_piece)
+//                 ->where('inspecting_id', $inspecting->inspecting_id)
+//                 ->orderBy('id')
+//                 ->get();
+
+//             if ($remainingItems->isEmpty()) {
+//                 // Jika tidak ada item lain, update item yang tersisa menjadi is_head dan hapus qty_sum
+//                 $inspecting->update([
+//                     'is_head' => 1,
+//                     'qty_sum' => null,
+//                     'qty_count' => 0,
+//                 ]);
+//             } else {
+//                 // Jika masih ada item lain, perbarui item pertama menjadi is_head baru
+//                 $newHeadItem = $remainingItems->first();
+//                 $totalQtySum = $remainingItems->sum('qty');
+
+//                 foreach ($remainingItems as $item) {
+//                     $item->update([
+//                         'is_head' => ($item->id === $newHeadItem->id) ? 1 : 0,
+//                         'qty_sum' => ($item->id === $newHeadItem->id) ? $totalQtySum : null,
+//                         'qty_count' => ($item->id === $newHeadItem->id) ? $remainingItems->count() : 0,
+//                     ]);
+//                 }
+//             }
+//         }
+
+//         DB::commit();
+
+//         return response()->json([
+//             'success' => true,
+//             'message' => 'Data Inspecting berhasil diperbarui',
+//             'data' => $inspecting->load('defect_item'),
+//         ]);
+//     } catch (\Exception $e) {
+//         DB::rollBack();
+//         Log::error('Exception: ' . $e->getMessage());
+//         return response()->json([
+//             'success' => false,
+//             'message' => 'Terjadi kesalahan saat memperbarui data',
+//             'error' => $e->getMessage(),
+//         ], 500);
+//     }
+// }
+
+
+
+
+
 
 
     public function updateInspecting(Request $request, $id)
