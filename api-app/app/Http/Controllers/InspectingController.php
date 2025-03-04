@@ -115,7 +115,8 @@ class InspectingController extends Controller
 
             // Fetch the inspecting data with the associated relationships
             $inspecting = InspectingMklbj::with([
-                'wo',
+                'wo.scGreige',
+                'wo.woColor.scGreige',
                 'woColor',
                 'woColor.moColor',
                 'inspectingMklbjItem.defect_item.mstKodeDefect'
@@ -142,34 +143,97 @@ class InspectingController extends Controller
         }
     }
 
-   public function kalkulasi(Request $request, $id)
-{
-    // Validasi request langsung dari array utama
-    $request->validate([
-        '*.nilai_poin' => 'required|numeric',
-        '*.id' => 'required|array',
-        '*.id.*.inspecting_item_id' => 'required|integer',
-    ]);
+//    public function kalkulasi(Request $request, $id)
+// {
+//     // Validasi request langsung dari array utama
+//     $request->validate([
+//         '*.nilai_poin' => 'required|numeric',
+//         '*.id' => 'required|array',
+//         '*.id.*.inspecting_item_id' => 'required|integer',
+//     ]);
 
-    // Loop melalui setiap item dalam array request
-    foreach ($request->all() as $item) {
-        foreach ($item['id'] as $inspectItem) {
-            $inspect = InspectingItem::where('id', $inspectItem['inspecting_item_id'])->first();
+//     // Loop melalui setiap item dalam array request
+//     foreach ($request->all() as $item) {
+//         foreach ($item['id'] as $inspectItem) {
+//             $inspect = InspectingItem::where('id', $inspectItem['inspecting_item_id'])->first();
 
-            if ($inspect) {
-                // Menentukan nilai grade berdasarkan nilai_poin
-                $inspect->grade = ($item['nilai_poin'] < 28) ? 1 : 2;
-                $inspect->save();
+//             if ($inspect) {
+//                 // Menentukan nilai grade berdasarkan nilai_poin
+//                 $inspect->grade = ($item['nilai_poin'] < 28) ? 1 : 2;
+//                 $inspect->save();
+//             }
+//         }
+//     }
+
+//     return response()->json([
+//         'success' => true,
+//         'message' => 'Data berhasil diperbarui'
+//     ]);
+//     return response()->json(['message' => 'Data berhasil diperbarui'], 200);
+// }
+
+    public function kalkulasi(Request $request, $id)
+    {
+        // Validasi request langsung dari array utama
+        $request->validate([
+            '*.nilai_poin' => 'required|numeric',
+            '*.id' => 'required|array',
+            '*.id.*.inspecting_item_id' => 'required|integer',
+        ]);
+
+        // Loop melalui setiap item dalam array request
+        foreach ($request->all() as $item) {
+            foreach ($item['id'] as $inspectItem) {
+                $inspect = InspectingItem::where('id', $inspectItem['inspecting_item_id'])->first();
+
+                if ($inspect) {
+                    // Cek jika grade sebelumnya adalah 1, 2, 7, atau 8
+                    if (in_array($inspect->grade, [1, 2, 7, 8])) {
+                        // Menentukan nilai grade berdasarkan nilai_poin
+                        $inspect->grade = ($item['nilai_poin'] < 28) ? 1 : 2;
+                        $inspect->save();
+                    }
+                }
             }
         }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Data berhasil diperbarui'
+        ], 200);
     }
 
-    return response()->json([
-        'success' => true,
-        'message' => 'Data berhasil diperbarui'
-    ]);
-    return response()->json(['message' => 'Data berhasil diperbarui'], 200);
-}
+
+    public function kalkulasiMklbj(Request $request, $id)
+    {
+        // Validasi request langsung dari array utama
+        $request->validate([
+            '*.nilai_poin' => 'required|numeric',
+            '*.id' => 'required|array',
+            '*.id.*.inspecting_item_id' => 'required|integer',
+        ]);
+
+        // Loop melalui setiap item dalam array request
+        foreach ($request->all() as $item) {
+            foreach ($item['id'] as $inspectItem) {
+                $inspect = InspectingMklbjItem::where('id', $inspectItem['inspecting_item_id'])->first();
+
+                if ($inspect) {
+                    // Cek jika grade sebelumnya adalah 1, 2, 7, atau 8
+                    if (in_array($inspect->grade, [1, 2, 7, 8])) {
+                        // Menentukan nilai grade berdasarkan nilai_poin
+                        $inspect->grade = ($item['nilai_poin'] < 28) ? 1 : 2;
+                        $inspect->save();
+                    }
+                }
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Data berhasil diperbarui'
+        ], 200);
+    }
 
     public function show($id)
     {
@@ -236,10 +300,10 @@ class InspectingController extends Controller
                     'join_piece' => $joinPiece,
                     'qty' => (int) $validatedData['qty'],
                     'note' => null,
-                    'qty_sum' => null,
-                    'is_head' => 0,
+                    // 'qty_sum' => null,
+                    // 'is_head' => 0,
                     'qr_code' => 'INS-' . $inspecting->id . '-' . (InspectingItem::latest('id')->first()->id + 1),
-                    'qty_count' => 0,
+                    // 'qty_count' => 0,
                     'qr_code_desc' => null,
                     'qr_print_at' => null,
                     'stock_id' => $validatedData['stock_id'] ?? '',
@@ -291,6 +355,25 @@ class InspectingController extends Controller
                 $inspectingItem->update([
                     'no_lot' => $validatedData['no_lot']
                 ]);
+            }
+
+
+                        $getItemBasedOnInspectingId = InspectingItem::where('inspecting_id', $inspecting->id)->get();
+            foreach ($getItemBasedOnInspectingId as $gIBOII) {
+                // Hitung ulang qty_sum untuk setiap grup join_piece
+                $qty_sum = InspectingItem::where('join_piece', $gIBOII->join_piece)->sum('qty');
+
+                // Reset semua is_head menjadi 0
+                InspectingItem::where('join_piece', $gIBOII->join_piece)->update(['is_head' => 0]);
+
+                // Ambil item dengan ID terkecil dalam grup join_piece sebagai is_head
+                $is_head = InspectingItem::where('join_piece', $gIBOII->join_piece)->orderBy('id', 'asc')->first();
+
+                $gIBOII->qty_sum = ($is_head && ($is_head->id != $gIBOII->id)) ? null : $qty_sum;
+                $gIBOII->is_head = ($is_head && $is_head->id == $gIBOII->id) ? 1 : 0;
+                $gIBOII->qty_count = ($gIBOII->join_piece == null || $gIBOII->join_piece == "") ? 1 : InspectingItem::where('join_piece', $gIBOII->join_piece)->count();
+                $gIBOII->qr_code = 'INS-' . $gIBOII->inspecting_id . '-' . $gIBOII->id;
+                $gIBOII->save();
             }
 
 
@@ -356,8 +439,6 @@ class InspectingController extends Controller
 //                 'join_piece' => $joinPiece,
 //                 'qty' => (int) $validatedData['qty'],
 //                 'note' => null,
-//                 'qty_sum' => null,
-//                 'is_head' => 0,
 //                 'qr_code' => 'INS-' . $inspecting->id . '-' . (InspectingItem::latest('id')->first()->id + 1),
 //                 'qty_count' => 0,
 //                 'qr_code_desc' => null,
@@ -412,35 +493,27 @@ class InspectingController extends Controller
 //         }
 
 
-//         // Ambil semua item berdasarkan inspecting_id
-//     $allItems = InspectingItem::where('inspecting_id', $inspecting->id)->get();
+//     // Update the inspecting item data for qty_sum, qty_count, etc.
+//             // $getItemBasedOnInspectingId = InspectingItem::where('inspecting_id', $inspecting->id)->get();
+//             // foreach ($getItemBasedOnInspectingId as $gIBOII) {
+//             //     $qty_sum = InspectingItem::where('join_piece', $gIBOII->join_piece)
+//             //         ->where('inspecting_id', $inspecting->id)
+//             //         ->sum('qty');
+//             //     $qty_count = InspectingItem::where('join_piece', $gIBOII->join_piece)
+//             //         ->where('inspecting_id', $inspecting->id)
+//             //         ->count();
+//             //     $is_head = InspectingItem::where('join_piece', $gIBOII->join_piece)
+//             //         ->where('inspecting_id', $inspecting->id)
+//             //         ->where('join_piece', '!=', '')
+//             //         ->orderBy('is_head', 'desc')
+//             //         ->first();
 
-//     foreach ($allItems as $item) {
-//         // Ambil semua item yang memiliki join_piece yang sama dan urutkan berdasarkan ID
-//         $itemsWithSameJoinPiece = InspectingItem::where('join_piece', $item->join_piece)
-//             ->where('inspecting_id', $inspecting->id)
-//             ->orderBy('id') // Urutkan berdasarkan ID terkecil
-//             ->get();
-
-//         if ($itemsWithSameJoinPiece->isNotEmpty()) {
-//             // Ambil item pertama sebagai is_head
-//             $isHeadItem = $itemsWithSameJoinPiece->first();
-
-//             // Hitung total qty untuk join_piece yang sama
-//             $totalQtySum = $itemsWithSameJoinPiece->sum('qty');
-
-//             foreach ($itemsWithSameJoinPiece as $i) {
-//                 $i->update([
-//                     'is_head' => ($i->id === $isHeadItem->id) ? 1 : 0,
-//                     'qty_sum' => ($i->id === $isHeadItem->id) ? $totalQtySum : null,
-//                     'qty_count' => ($i->id === $isHeadItem->id) ? $itemsWithSameJoinPiece->count() : 0,
-//                     'qr_code' => !empty($i->qr_code) ? $i->qr_code : 'INS-' . $i->inspecting_id . '-' . $i->id,
-//                 ]);
-//             }
-//         }
-//     }
-
-//     DB::commit();
+//             //     $gIBOII->qty_sum = ($is_head && ($is_head->id != $gIBOII->id)) ? null : ($gIBOII->join_piece == null || $gIBOII->join_piece == "" ? $gIBOII->qty : $qty_sum);
+//             //     $gIBOII->is_head = ($is_head && ($is_head->id != $gIBOII->id)) ? 0 : 1;
+//             //     $gIBOII->qty_count = ($is_head && ($is_head->id != $gIBOII->id)) ? 0 : ($gIBOII->join_piece == null || $gIBOII->join_piece == "" ? 1 : $qty_count);
+//             //     $gIBOII->qr_code = 'INS-' . $gIBOII->inspecting_id . '-' . $gIBOII->id;
+//             //     $gIBOII->save();
+//             // }
 
 
 
@@ -608,6 +681,10 @@ class InspectingController extends Controller
 //         ], 500);
 //     }
 // }
+
+
+
+
 
 
 
@@ -932,6 +1009,8 @@ class InspectingController extends Controller
                 $item->qty_count = ($isHead && $isHead->id != $item->id) ? 0 : ($item->join_piece == null || $item->join_piece == "" ? 1 : $qtyCount);
                 $item->save();
             }
+
+
 
             return response()->json([
                 'success' => true,

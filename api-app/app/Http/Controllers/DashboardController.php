@@ -664,6 +664,7 @@ public function store(Request $request)
                 'defect' => null,
                 'stock_id' => $validatedData['stock_id'] ?? '',
                 'qty_bit' => $validatedData['qty_bit'] ?? null,
+                'gsm_item' => $validatedData['gsm_item'] ?? null,
             ];
 
             $inspectingItemModel = InspectingItem::create($inspectingItem);

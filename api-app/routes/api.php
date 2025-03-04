@@ -62,6 +62,7 @@ Route::prefix('v1')->group(function () {
         Route::get('get-inspecting-mkl-bj/{id}', 'InspectingController@indexMklbj');
         Route::put('get-inspecting/update/{id}', 'InspectingController@update');
         Route::put('kalkukasi/{id}', 'InspectingController@kalkulasi');
+        Route::put('kalkukasi/mkl-bj/{id}', 'InspectingController@kalkulasiMklbj');
         Route::put('update-inspecting/{id}', 'InspectingController@updateInspecting');
         Route::put('update-inspecting-mklbj/{id}', 'InspectingController@updateInspectingMklbj');
         Route::put('update-inspecting-mklbj/item/{id}', 'InspectingController@updateInspectingMklbjItem');
