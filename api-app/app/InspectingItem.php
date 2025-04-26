@@ -36,6 +36,7 @@ class InspectingItem extends Model
         'stock_id',
         'qty_bit',
         'gsm_item',
+        'no_urut',
     ];
 
     public function inspecting()

@@ -314,6 +314,8 @@ public function store(Request $request)
 
             foreach ($items as $index => $item) {
 
+                // $no_urut = InspectingItem::where('inspecting_id', $inspecting->id)->count() + 1;
+
                 $inspectingItem = [
                     'inspecting_id' => $inspecting->id,
                     'grade' => $item['grade'] ?? '-',
@@ -331,6 +333,7 @@ public function store(Request $request)
                     'stock_id' => $item['stock_id'] ?? '',
                     'qty_bit' => $item['qty_bit'] ?? null,
                     'gsm_item' => $item['gsm_item'] ?? null,
+                    'no_urut' => $item['no_urut'] ?? null,
                 ];
 
                 $inspectingItemModel = InspectingItem::create($inspectingItem);
@@ -438,6 +441,12 @@ public function store(Request $request)
 
             // Proses `inspect_result`
             foreach ($validatedData['inspect_result'] as $item) {
+
+            //      $lastNoUrut = InspectingMklbjItem::where('inspecting_id', $inspectingMklbj->id)
+            //     ->max('no_urut');
+            // $nextNoUrut = $lastNoUrut ? $lastNoUrut + 1 : 1;
+
+
                 $inspectingMklbjItem = [
                     'inspecting_id' => $inspectingMklbj->id,
                     'grade' => $item['grade'] ?? '-',
@@ -446,6 +455,7 @@ public function store(Request $request)
                     'lot_no' => $item['lot_no'] ?? '',
                     'qr_code' => 'INS-' . $inspectingMklbj->id . '-' . (InspectingMklbjItem::latest('id')->first()->id + 1),
                     'gsm_item' => $item['gsm_item'] ?? null,
+                    'no_urut' => $item['no_urut'] ?? null,
                 ];
 
                 $inspectingItemModel = InspectingMklbjItem::create($inspectingMklbjItem);
@@ -539,6 +549,12 @@ public function store(Request $request)
                 ], 404);
             }
 
+            $lastItem = InspectingMklbjItem::where('inspecting_id', $inspecting->id)
+            ->orderByDesc('no_urut')
+            ->first();
+
+            // $noUrut = $lastItem ? $lastItem->no_urut + 1 : 1;
+
             // Create the InspectingItem
             $inspectingItem = [
                 'inspecting_id' => $inspecting->id,
@@ -555,6 +571,7 @@ public function store(Request $request)
                 'lot_no' => $validatedData['lot_no'] ?? '',
                 'defect' => null,
                 'gsm_item' => $validatedData['gsm_item'] ?? null,
+                'no_urut' => $validatedData['no_urut'] ?? null,
             ];
 
             $inspectingItemModel = InspectingMklbjItem::create($inspectingItem);
@@ -647,6 +664,13 @@ public function store(Request $request)
                 ], 404);
             }
 
+             // Hitung no_urut berdasarkan inspecting_id
+            //            $lastItem = InspectingItem::where('inspecting_id', $inspecting->id)
+            //     ->orderBy('no_urut', 'desc')
+            //     ->first();
+
+            // $nextNoUrut = $lastItem ? $lastItem->no_urut + 1 : 1;
+
             // Create the InspectingItem
             $inspectingItem = [
                 'inspecting_id' => $inspecting->id,
@@ -665,6 +689,7 @@ public function store(Request $request)
                 'stock_id' => $validatedData['stock_id'] ?? '',
                 'qty_bit' => $validatedData['qty_bit'] ?? null,
                 'gsm_item' => $validatedData['gsm_item'] ?? null,
+                'no_urut' => $validatedData['no_urut'] ?? null,
             ];
 
             $inspectingItemModel = InspectingItem::create($inspectingItem);
@@ -785,6 +810,11 @@ public function store(Request $request)
             $inspecting = Inspecting::create($dataToStore);
 
             foreach ($validatedData['inspect_result'] as $key => $items) {
+                 $lastItem = InspectingItem::where('inspecting_id', $inspecting->id)->orderBy('no_urut', 'desc')
+                ->first();;
+
+            $lastUrut = $lastItem ? $lastItem->no_urut + 1 : 1;
+
                 foreach ($items as $index => $item) {
                     $inspectingItem = [
                         'inspecting_id' => $inspecting->id,
@@ -802,7 +832,8 @@ public function store(Request $request)
                         'defect' => null,
                         'stock_id' => $item['stock_id'] ?? '',
                         'qty_bit' => $item['qty_bit'] ?? null,
-                        'gsm_item' => $item['gsm_item'] ?? '',
+                        'gsm_item' => $item['gsm_item'] ?? null,
+                        'no_urut' => $lastUrut,
                     ];
 
                     $inspectingItemModel = InspectingItem::create($inspectingItem);

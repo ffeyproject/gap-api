@@ -62,6 +62,7 @@ class InspectingController extends Controller
                 'approvedBy',
                 'deliveredBy',
                 'k3l',
+                'inspectingItem',
                 'inspectingItem.defect_item.mstKodeDefect',
                 'inspectingItem.stock'
             ])->findOrFail($id);
@@ -119,6 +120,7 @@ class InspectingController extends Controller
                 'wo.woColor.scGreige',
                 'woColor',
                 'woColor.moColor',
+                'inspectingMklbjItem',
                 'inspectingMklbjItem.defect_item.mstKodeDefect'
             ])->findOrFail($id);
 
