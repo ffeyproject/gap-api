@@ -685,15 +685,6 @@ class InspectingController extends Controller
 // }
 
 
-
-
-
-
-
-
-
-
-
     public function updateInspecting(Request $request, $id)
     {
         // Validasi input menggunakan Validator
@@ -701,6 +692,7 @@ class InspectingController extends Controller
             'wo_id' => 'required|integer',
             'no_lot' => 'required|string',
             'unit' => 'required|integer',
+            'jenis_inspek' => 'nullable',
             'warna' => 'required|string',
             'mo_id' => 'nullable',
             'sc_greige_id' => 'nullable',
@@ -749,6 +741,7 @@ class InspectingController extends Controller
         // Update data di tabel inspecting
         $inspecting->wo_id = $request->wo_id;
         $inspecting->no_lot = $request->no_lot;
+        $inspecting->jenis_inspek = $request->jenis_inspek;
         $inspecting->unit = $request->unit;
         $inspecting->kombinasi = $request->warna;
         $inspecting->mo_id = $request->mo_id;
@@ -836,6 +829,7 @@ class InspectingController extends Controller
                 'mo_color_id' => 'required|integer',
                 'no_lot' => 'required|max:255',
                 'unit' => 'required|max:255',
+                'jenis_inspek' => 'nullable',
                 'inspection_table' => 'nullable',
                 'jenis_makloon' => 'required|max:255',
                 'inspect_result' => 'nullable|array',
@@ -867,6 +861,7 @@ class InspectingController extends Controller
                 'wo_color_id' => $validatedData['mo_color_id'],
                 'no_lot' => $validatedData['no_lot'],
                 'satuan' => $validatedData['unit'],
+                'jenis_inspek' => $validatedData['jenis_inspek'],
                 'jenis' => $validatedData['jenis_makloon'],
                 'tgl_inspeksi' => \Carbon\Carbon::now()->format('Y-m-d'),
                 'tgl_kirim' => \Carbon\Carbon::now()->format('Y-m-d'),

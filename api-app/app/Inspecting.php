@@ -43,6 +43,7 @@ class Inspecting extends Model
         'k3l_code',
         'defect',
         'inspection_table',
+        'jenis_inspek',
     ];
 
     public $timestamps = false;
