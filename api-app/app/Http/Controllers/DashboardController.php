@@ -557,7 +557,7 @@ public function store(Request $request)
             ->orderByDesc('no_urut')
             ->first();
 
-            // $noUrut = $lastItem ? $lastItem->no_urut + 1 : 1;
+            $noUrut = $lastItem ? $lastItem->no_urut + 1 : 1;
 
             // Create the InspectingItem
             $inspectingItem = [
@@ -575,7 +575,7 @@ public function store(Request $request)
                 'lot_no' => $validatedData['lot_no'] ?? '',
                 'defect' => null,
                 'gsm_item' => $validatedData['gsm_item'] ?? null,
-                'no_urut' => $validatedData['no_urut'] ?? null,
+                'no_urut' => $noUrut
             ];
 
             $inspectingItemModel = InspectingMklbjItem::create($inspectingItem);
@@ -675,6 +675,12 @@ public function store(Request $request)
 
             // $nextNoUrut = $lastItem ? $lastItem->no_urut + 1 : 1;
 
+             $lastItem = InspectingMklbjItem::where('inspecting_id', $inspecting->id)
+            ->orderByDesc('no_urut')
+            ->first();
+
+            $noUrut = $lastItem ? $lastItem->no_urut + 1 : 1;
+
             // Create the InspectingItem
             $inspectingItem = [
                 'inspecting_id' => $inspecting->id,
@@ -693,7 +699,7 @@ public function store(Request $request)
                 'stock_id' => $validatedData['stock_id'] ?? '',
                 'qty_bit' => $validatedData['qty_bit'] ?? null,
                 'gsm_item' => $validatedData['gsm_item'] ?? null,
-                'no_urut' => $validatedData['no_urut'] ?? null,
+                'no_urut' => $noUrut,
             ];
 
             $inspectingItemModel = InspectingItem::create($inspectingItem);
@@ -816,10 +822,10 @@ public function store(Request $request)
             $inspecting = Inspecting::create($dataToStore);
 
             foreach ($validatedData['inspect_result'] as $key => $items) {
-                 $lastItem = InspectingItem::where('inspecting_id', $inspecting->id)->orderBy('no_urut', 'desc')
-                ->first();;
+                //  $lastItem = InspectingItem::where('inspecting_id', $inspecting->id)->orderBy('no_urut', 'desc')
+                // ->first();;
 
-            $lastUrut = $lastItem ? $lastItem->no_urut + 1 : 1;
+            // $lastUrut = $lastItem ? $lastItem->no_urut + 1 : 1;
 
                 foreach ($items as $index => $item) {
                     $inspectingItem = [
@@ -839,7 +845,7 @@ public function store(Request $request)
                         'stock_id' => $item['stock_id'] ?? '',
                         'qty_bit' => $item['qty_bit'] ?? null,
                         'gsm_item' => $item['gsm_item'] ?? null,
-                        'no_urut' => $lastUrut,
+                        'no_urut' => $item['no_urut'] ?? null,
                     ];
 
                     $inspectingItemModel = InspectingItem::create($inspectingItem);
