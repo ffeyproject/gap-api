@@ -365,7 +365,7 @@ public function store(Request $request)
                     $is_head = InspectingItem::where('join_piece', $gIBOII->join_piece)
                         ->where('inspecting_id', $inspecting->id)
                         ->where('join_piece', '!=', '')
-                        ->orderBy('is_head', 'desc')
+                        ->orderBy('no_urut', 'asc')
                         ->first();
 
                     $gIBOII->qty_sum = ($is_head && ($is_head->id != $gIBOII->id)) ? null : ($gIBOII->join_piece == null || $gIBOII->join_piece == "" ? $gIBOII->qty : $qty_sum);
@@ -494,7 +494,7 @@ public function store(Request $request)
                 $isHead = InspectingMklbjItem::where('join_piece', $item->join_piece)
                     ->where('inspecting_id', $inspectingMklbj->id)
                     ->where('join_piece', '!=', '')
-                    ->orderByDesc('is_head')
+                    ->orderByAsc('no_urut')
                     ->orderBy('id')
                     ->first();
 
