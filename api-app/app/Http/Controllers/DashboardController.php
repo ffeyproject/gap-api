@@ -675,7 +675,7 @@ public function store(Request $request)
 
             // $nextNoUrut = $lastItem ? $lastItem->no_urut + 1 : 1;
 
-             $lastItem = InspectingMklbjItem::where('inspecting_id', $inspecting->id)
+             $lastItem = InspectingItem::where('inspecting_id', $inspecting->id)
             ->orderByDesc('no_urut')
             ->first();
 
