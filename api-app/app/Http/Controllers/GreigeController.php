@@ -34,7 +34,7 @@ public function rekapStockGreige(Request $request)
     $asalGreige = $request->input('asal_greige');
 
     // Query stok greige dengan relasi ke tabel Greige
-    $query = StockGreige::with('greige:id,nama_kain')
+    $query = StockGreige::with('greige:id,nama_kain,available')
         ->whereBetween('date', [$startDate, $endDate])
         ->where('status', '2');
 
@@ -61,29 +61,6 @@ public function rekapStockGreige(Request $request)
         $query->where('asal_greige', $asalGreige);
     }
 
-    // Group by `greige_id` dan `grade`, lalu hitung total panjang_m
-    // $rekapStock = $query->selectRaw('greige_id, lot_lusi, lot_pakan, status_tsd, asal_greige, grade, note, SUM(panjang_m) as total_panjang')
-    // ->groupBy('greige_id', 'lot_lusi', 'lot_pakan', 'status_tsd', 'asal_greige', 'grade', 'note')
-    // ->get()
-    // ->groupBy(function ($item) {
-    //     return $item->greige_id . '-' . $item->lot_lusi . '-' . $item->lot_pakan . '-' . $item->status_tsd . '-' . $item->asal_greige . '-' . $item->grade . '-' . $item->note;
-    // })
-    // ->map(function ($groupedItems) {
-    //       $firstItem = $groupedItems->first();
-    //     return [
-    //         'greige_id' => $groupedItems->first()->greige_id,
-    //         'nama_kain' => optional($groupedItems->first()->greige)->nama_kain,
-    //         'grade' => $groupedItems->first()->grade,
-    //         'lot_lusi' => $groupedItems->first()->lot_lusi,
-    //         'lot_pakan' => $groupedItems->first()->lot_pakan,
-    //         'status_tsd' => $groupedItems->first()->status_tsd,
-    //         'asal_greige' => $groupedItems->first()->asal_greige,
-    //         'note' => $groupedItems->first()->note,
-    //         'lebar_kain' => optional($firstItem->greigeGroup)->lebar_kain,
-    //         'total_panjang' => $groupedItems->sum('total_panjang'),
-    //     ];
-    // })->values();
-
 
     $rekapStock = $query->selectRaw('greige_id, lot_lusi, lot_pakan, status_tsd, asal_greige, grade, note, SUM(panjang_m) as total_panjang')
     ->groupBy('greige_id', 'lot_lusi', 'lot_pakan', 'status_tsd', 'asal_greige', 'grade', 'note')
@@ -94,7 +71,7 @@ public function rekapStockGreige(Request $request)
     })
     ->groupBy(function ($item) {
         // Kelompokkan tanpa memasukkan grade agar bisa digabung
-        return $item->greige_id . '-' . $item->lot_lusi . '-' . $item->lot_pakan . '-' . $item->status_tsd . '-' . $item->asal_greige . '-' . $item->note;
+        return $item->greige_id . '-' . $item->lot_lusi . '-' . $item->lot_pakan . '-' . $item->status_tsd . '-' . $item->asal_greige . '-' . $item->note . '-' . $item->available;
     })
     ->map(function ($groupedItems) {
         $firstItem = $groupedItems->first();
@@ -107,6 +84,7 @@ public function rekapStockGreige(Request $request)
             'status_tsd' => $firstItem->status_tsd,
             'asal_greige' => $firstItem->asal_greige,
             'note' => $firstItem->note,
+           'available' => optional($firstItem->greige)->available,
             'lebar_kain' => optional($firstItem->greigeGroup)->lebar_kain,
             'grade' => $groupedItems->mapWithKeys(function ($item) {
                 return [$item->grade => $item->total_panjang];
