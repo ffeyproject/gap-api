@@ -48,6 +48,7 @@ class InspectingMklbj extends Model
         return $this->belongsTo(WoColor::class, 'wo_color_id', 'id');
     }
 
+
     public function inspectingMklbjItem(): HasMany
     {
         return $this->hasMany(InspectingMklbjItem::class, 'inspecting_id');

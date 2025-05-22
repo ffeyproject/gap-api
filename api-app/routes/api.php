@@ -82,4 +82,14 @@ Route::prefix('v1')->group(function () {
     Route::group(['prefix' => 'greige', 'middleware' => 'api'], function () {
         Route::get('rekap-stock-greige', 'GreigeController@rekapStockGreige');
     });
+
+    Route::group(['prefix' => 'verpacking', 'middleware' => 'api'], function () {
+        Route::get('daftar-pengiriman-produksi', 'VerpackingController@daftarPengirimanProduksi');
+        Route::get('daftar-pengiriman-produksi-mklbj', 'VerpackingController@daftarPengirimanProduksiMklbj');
+        Route::get('rekap-pengiriman-produksi', 'VerpackingController@rekapPengirimanProduksi');
+        Route::get('analisa-pengiriman-produksi', 'VerpackingController@analisaPengirimanProduksi');
+        Route::get('analisa-pengiriman-produksi-mklbj', 'VerpackingController@analisaPengirimanProduksiMklbj');
+    });
+
+
 });
