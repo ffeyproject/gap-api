@@ -344,7 +344,7 @@ class VerpackingController extends Controller
 
             foreach ($inspection->inspectingMklbjItem as $item) {
                 $data['details'][] = [
-                    'grade' => $item->grade, // Anda dapat menyesuaikan ini sesuai dengan logika
+                    'grade' => $item->grade,
                     'join_piece' => $item->join_piece,
                     'qty' => $item->qty,
                     'note' => $item->note,
@@ -862,7 +862,7 @@ public function rekapPengirimanProduksi(Request $request)
 
             foreach ($inspection->inspectingMklbjItem as $item) {
                 $data['details'][] = [
-                    'grade' => $item->grade, // Anda dapat menyesuaikan ini sesuai dengan logika
+                    'grade' => $item->grade,
                     'join_piece' => $item->join_piece,
                     'qty' => $item->qty,
                     'note' => $item->note,
@@ -876,7 +876,6 @@ public function rekapPengirimanProduksi(Request $request)
             $data['total_qty'] = $total_qty;
 
 
-             // Susun ke struktur nested berdasarkan buyer -> no_wo -> kombinasi
             $output[$buyer][$no_wo][$design][$kombinasi][] = $data;
         }
 
@@ -1044,7 +1043,6 @@ public function rekapPengirimanProduksi(Request $request)
         'data' => $result
     ]);
 }
-
 
 
 

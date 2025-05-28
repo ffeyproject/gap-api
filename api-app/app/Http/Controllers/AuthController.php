@@ -2,100 +2,189 @@
 
 namespace App\Http\Controllers;
 
+use App\User;
 use App\UserModel;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Validator;
 use \Carbon\Carbon;
 
 
 class AuthController extends Controller
 {
     //
-    public function login(Request $request)
-{
-    try {
-        DB::beginTransaction();
-        $username = $request->json('username');
-        $password = $request->json('password');
-        $forceLogin = $request->json('force_login'); // Tambahkan parameter force_login
-        $options = [
-            'cost' => 12
-        ];
+        public function login(Request $request)
+    {
+        try {
+            DB::beginTransaction();
+            $username = $request->json('username');
+            $password = $request->json('password');
+            $forceLogin = $request->json('force_login'); // Tambahkan parameter force_login
+            $options = [
+                'cost' => 12
+            ];
 
-        $user = UserModel::where('username', $username)->first();
+            $user = UserModel::where('username', $username)->first();
 
-        if ($user) {
-            // Periksa apakah password cocok
-            if (!password_verify($password, $user->password_hash)) {
-                DB::rollBack();
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Password salah!',
-                    'data' => [],
-                ], 200);
-            }
-
-            // Periksa apakah pengguna sudah login
-            if (!is_null($user->verification_token) && $user->token_expired > Carbon::now()) {
-                if ($forceLogin) {
-                    // Reset token jika force_login diaktifkan
-                    $user->verification_token = null;
-                    $user->token_expired = null;
-                    $user->save();
-                } else {
+            if ($user) {
+                // Periksa apakah password cocok
+                if (!password_verify($password, $user->password_hash)) {
                     DB::rollBack();
                     return response()->json([
                         'success' => false,
-                        'message' => 'Maaf User Anda sedang login di perangkat lain. Gunakan opsi centang jika Anda yakin ingin mengganti perangkat.',
+                        'message' => 'Password salah!',
                         'data' => [],
                     ], 200);
                 }
+
+                // Periksa apakah pengguna sudah login
+                if (!is_null($user->verification_token) && $user->token_expired > Carbon::now()) {
+                    if ($forceLogin) {
+                        // Reset token jika force_login diaktifkan
+                        $user->verification_token = null;
+                        $user->token_expired = null;
+                        $user->save();
+                    } else {
+                        DB::rollBack();
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Maaf User Anda sedang login di perangkat lain. Gunakan opsi centang jika Anda yakin ingin mengganti perangkat.',
+                            'data' => [],
+                        ], 200);
+                    }
+                }
+
+                // Buat token JWT baru
+                $timeExpired = Carbon::now()->addDays(7);
+                $payload = [
+                    'sub' => $user->id,
+                    'name' => $user->username,
+                    'expired' => $timeExpired,
+                ];
+
+                $jwtSecret = env('JWT_SECRET');
+                $token = base64_encode(json_encode(['alg' => 'HS256', 'typ' => 'JWT'])) . '.' .
+                    base64_encode(json_encode($payload)) . '.' .
+                    base64_encode(hash_hmac('sha256', 'header.payload', $jwtSecret, true));
+
+                // Simpan token baru ke database
+                $user->verification_token = $token;
+                $user->token_expired = $timeExpired;
+                $user->save();
+
+                Auth::setUser($user);
+                DB::commit();
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Login Success!',
+                    'data' => $user,
+                    'token' => $token,
+                ], 200);
+            } else {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Username atau Password salah!',
+                    'data' => [],
+                ], 200);
             }
-
-            // Buat token JWT baru
-            $timeExpired = Carbon::now()->addDays(7);
-            $payload = [
-                'sub' => $user->id,
-                'name' => $user->username,
-                'expired' => $timeExpired,
-            ];
-
-            $jwtSecret = env('JWT_SECRET');
-            $token = base64_encode(json_encode(['alg' => 'HS256', 'typ' => 'JWT'])) . '.' .
-                base64_encode(json_encode($payload)) . '.' .
-                base64_encode(hash_hmac('sha256', 'header.payload', $jwtSecret, true));
-
-            // Simpan token baru ke database
-            $user->verification_token = $token;
-            $user->token_expired = $timeExpired;
-            $user->save();
-
-            Auth::setUser($user);
-            DB::commit();
-            return response()->json([
-                'success' => true,
-                'message' => 'Login Success!',
-                'data' => $user,
-                'token' => $token,
-            ], 200);
-        } else {
+        } catch (\Throwable $th) {
             DB::rollBack();
             return response()->json([
                 'success' => false,
-                'message' => 'Username atau Password salah!',
+                'message' => 'Login Failed! ' . $th->getMessage(),
                 'data' => [],
             ], 200);
         }
-    } catch (\Throwable $th) {
-        DB::rollBack();
+    }
+
+    public function changePassword(Request $request)
+    {
+        // Ambil user berdasarkan token (custom auth manual, bukan Auth::user())
+        $token = $request->header('Authorization');
+        $token = str_replace('Bearer ', '', $token);
+
+        $user = User::where('verification_token', $token)->first();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User tidak ditemukan atau token tidak valid',
+            ], 401);
+        }
+
+        // Validasi input
+        $validator = Validator::make($request->all(), [
+            'old_password' => 'required',
+            'new_password' => 'required|min:6|confirmed',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validasi gagal',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        // Verifikasi password lama
+        if (!password_verify($request->old_password, $user->password_hash)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Password lama salah',
+            ], 200);
+        }
+
+        // Update password baru
+        $user->password_hash = password_hash($request->new_password, PASSWORD_BCRYPT, ['cost' => 12]);
+        $user->save();
+
         return response()->json([
-            'success' => false,
-            'message' => 'Login Failed! ' . $th->getMessage(),
-            'data' => [],
+            'success' => true,
+            'message' => 'Password berhasil diubah',
         ], 200);
     }
-}
+
+    public function profile()
+    {
+        try {
+            $token = request()->header('Authorization');
+            $token = str_replace('Bearer ', '', $token);
+
+            $user = User::where('verification_token', $token)->first();
+
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User tidak ditemukan atau token tidak valid',
+                    'data' => null,
+                ], 404);
+            }
+
+            // Ambil hanya field yang dibutuhkan
+            $data = [
+                'id' => $user->id,
+                'username' => $user->username,
+                'full_name' => $user->full_name,
+                'verification_token' => $user->verification_token,
+            ];
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Data profil berhasil diambil',
+                'data' => $data,
+            ], 200);
+        } catch (\Throwable $th) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan: ' . $th->getMessage(),
+                'data' => null,
+            ], 500);
+        }
+    }
+
 
 
 

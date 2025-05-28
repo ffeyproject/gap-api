@@ -26,6 +26,8 @@ Route::prefix('v1')->group(function () {
         Route::post('update-fcm-token', 'AuthController@UpdateFCMToken');
         Route::post('logout', ['middleware' => 'api', 'uses' => 'AuthController@logout']);
         Route::post('role-user', 'AuthController@GetRoleUser');
+        Route::post('change-password', 'AuthController@changePassword');
+        Route::get('profile', 'AuthController@profile');
     });
 
     Route::group(['prefix' => 'dashboard', 'middleware' => 'api'], function () {
