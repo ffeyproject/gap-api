@@ -494,7 +494,7 @@ public function store(Request $request)
                 $isHead = InspectingMklbjItem::where('join_piece', $item->join_piece)
                     ->where('inspecting_id', $inspectingMklbj->id)
                     ->where('join_piece', '!=', '')
-                    ->orderByAsc('no_urut')
+                    ->orderBy('no_urut', 'asc')
                     ->orderBy('id')
                     ->first();
 
