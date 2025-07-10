@@ -253,6 +253,7 @@ public function store(Request $request)
             'no_lot' => 'required|string|max:255',
             'unit' => 'required|string|max:255',
             'jenis_inspek' => 'required',
+            'no_memo' => 'nullable',
             'inspection_table' => 'nullable',
             'inspect_result' => 'required|array',
         ]);
@@ -302,6 +303,7 @@ public function store(Request $request)
             'status' => 1,
             'unit' => $validatedData['unit'],
             'jenis_inspek' => $validatedData['jenis_inspek'],
+            'no_memo' => $validatedData['no_memo'] ?? '-',
             'created_by' => $users->id,
             'updated_by' => $users->id,
             'k3l_code' => $kartuProsesDyeing->k3l_code ?? '-',
@@ -401,6 +403,7 @@ public function store(Request $request)
                 'no_lot' => 'required|string|max:255',
                 'unit' => 'required|string|max:255',
                 'jenis_inspek' => 'required',
+                'no_memo' => 'nullable',
                 'inspection_table' => 'nullable',
                 'jenis_makloon' => 'required|string|max:255',
                 'inspect_result' => 'required|array',
@@ -428,6 +431,7 @@ public function store(Request $request)
                 'satuan' => $validatedData['unit'],
                 'jenis' => $validatedData['jenis_makloon'],
                 'jenis_inspek' => $validatedData['jenis_inspek'],
+                'no_memo' => $validatedData['no_memo'] ?? '-',
                 'tgl_inspeksi' => \Carbon\Carbon::now()->format('Y-m-d'),
                 'tgl_kirim' => \Carbon\Carbon::now()->format('Y-m-d'),
                 'status' => 1,
@@ -460,6 +464,7 @@ public function store(Request $request)
                     'qr_code' => 'INS-' . $inspectingMklbj->id . '-' . (InspectingMklbjItem::latest('id')->first()->id + 1),
                     'gsm_item' => $item['gsm_item'] ?? null,
                     'no_urut' => $item['no_urut'] ?? null,
+                    'qty_bit' => $item['qty_bit'] ?? null,
                 ];
 
                 $inspectingItemModel = InspectingMklbjItem::create($inspectingMklbjItem);
@@ -531,6 +536,7 @@ public function store(Request $request)
                 'join_piece' => 'nullable|string|max:255',
                 'lot_no' => 'nullable|string|max:255',
                 'gsm_item' => 'nullable',
+                'qty_bit' => 'nullable|integer',
                 'defect' => 'nullable|array',
             ]);
 
@@ -574,6 +580,7 @@ public function store(Request $request)
                 'qr_print_at' => null,
                 'lot_no' => $validatedData['lot_no'] ?? '',
                 'defect' => null,
+                'qty_bit' => $validatedData['qty_bit'] ?? null,
                 'gsm_item' => $validatedData['gsm_item'] ?? null,
                 'no_urut' => $noUrut
             ];
@@ -762,6 +769,7 @@ public function store(Request $request)
                 'no_lot' => 'required|string|max:255',
                 'unit' => 'required|string|max:255',
                 'jenis_inspek' => 'required',
+                'no_memo' => 'nullable',
                 'inspection_table' => 'nullable',
                 'inspect_result' => 'required|array',
             ]);
@@ -811,6 +819,7 @@ public function store(Request $request)
                 'status' => 1,
                 'unit' => $validatedData['unit'],
                 'jenis_inspek' => $validatedData['jenis_inspek'],
+                'no_memo' => $validatedData['no_memo'] ?? '-',
                 'created_by' => $users->id,
                 'updated_by' => $users->id,
                 'k3l_code' => $kartuProsesPrinting->k3l_code ?? '-',

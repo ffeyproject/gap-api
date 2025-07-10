@@ -693,6 +693,7 @@ class InspectingController extends Controller
             'no_lot' => 'required|string',
             'unit' => 'required|integer',
             'jenis_inspek' => 'nullable',
+            'no_memo' => 'nullable',
             'warna' => 'required|string',
             'mo_id' => 'nullable',
             'sc_greige_id' => 'nullable',
@@ -742,6 +743,7 @@ class InspectingController extends Controller
         $inspecting->wo_id = $request->wo_id;
         $inspecting->no_lot = $request->no_lot;
         $inspecting->jenis_inspek = $request->jenis_inspek;
+        $inspecting->no_memo = $request->no_memo;
         $inspecting->unit = $request->unit;
         $inspecting->kombinasi = $request->warna;
         $inspecting->mo_id = $request->mo_id;
@@ -830,6 +832,7 @@ class InspectingController extends Controller
                 'no_lot' => 'required|max:255',
                 'unit' => 'required|max:255',
                 'jenis_inspek' => 'nullable',
+                'no_memo' => 'nullable',
                 'inspection_table' => 'nullable',
                 'jenis_makloon' => 'required|max:255',
                 'inspect_result' => 'nullable|array',
@@ -862,6 +865,7 @@ class InspectingController extends Controller
                 'no_lot' => $validatedData['no_lot'],
                 'satuan' => $validatedData['unit'],
                 'jenis_inspek' => $validatedData['jenis_inspek'],
+                'no_memo' => $validatedData['no_memo'],
                 'jenis' => $validatedData['jenis_makloon'],
                 'tgl_inspeksi' => \Carbon\Carbon::now()->format('Y-m-d'),
                 'tgl_kirim' => \Carbon\Carbon::now()->format('Y-m-d'),
@@ -931,6 +935,7 @@ class InspectingController extends Controller
                 'join_piece' => 'nullable|string|max:255',
                 'lot_no' => 'nullable|string|max:255',
                 'gsm_item' => 'nullable',
+                'qty_bit' => 'nullable|integer',
                 'defect' => 'nullable|array',
                 'defect.*.id' => 'nullable|integer',
                 'defect.*.mst_kode_defect_id' => 'required|integer',
@@ -964,6 +969,7 @@ class InspectingController extends Controller
                 'join_piece' => $validatedData['join_piece'] ?? '',
                 'lot_no' => $validatedData['lot_no'] ?? '',
                 'gsm_item' => $validatedData['gsm_item'] ?? null,
+                'qty_bit' => $validatedData['qty_bit'] ?? null,
             ]);
 
             foreach ($validatedData['defect'] as $defect) {

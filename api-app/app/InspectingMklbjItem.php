@@ -29,7 +29,8 @@ class InspectingMklbjItem extends Model
         'lot_no',
         'defect',
         'gsm_item',
-        'no_urut'
+        'no_urut',
+        'qty_bit',
     ];
 
     public function inspectingMklbj()

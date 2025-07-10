@@ -36,6 +36,7 @@ class InspectingMklbj extends Model
         'defect',
         'inspection_table',
         'jenis_inspek',
+        'no_memo',
     ];
 
     public function wo()
