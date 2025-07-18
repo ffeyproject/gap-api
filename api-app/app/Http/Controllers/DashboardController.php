@@ -526,7 +526,122 @@ public function store(Request $request)
     }
 
 
-    public function storeItemMklbj(Request $request)
+    // public function storeItemMklbj(Request $request)
+    // {
+    //     try {
+    //         $validator = Validator::make($request->all(), [
+    //             'inspecting_id' => 'required|integer',
+    //             'qty' => 'required|integer',
+    //             'grade' => 'required|integer',
+    //             'join_piece' => 'nullable|string|max:255',
+    //             'lot_no' => 'nullable|string|max:255',
+    //             'gsm_item' => 'nullable',
+    //             'qty_bit' => 'nullable|integer',
+    //             'defect' => 'nullable|array',
+    //         ]);
+
+    //         if ($validator->fails()) {
+    //             return response()->json([
+    //                 'success' => false,
+    //                 'message' => 'Validasi data gagal',
+    //                 'errors' => $validator->errors(),
+    //             ], 422);
+    //         }
+
+    //         $validatedData = $validator->validated();
+
+    //         // Ensure the inspecting_id exists in the Inspecting table
+    //         $inspecting = InspectingMklbj::find($validatedData['inspecting_id']);
+    //         if (!$inspecting) {
+    //             return response()->json([
+    //                 'success' => false,
+    //                 'message' => 'Inspecting ID tidak ditemukan',
+    //             ], 404);
+    //         }
+
+    //         $lastItem = InspectingMklbjItem::where('inspecting_id', $inspecting->id)
+    //         ->orderByDesc('no_urut')
+    //         ->first();
+
+    //         $noUrut = $lastItem ? $lastItem->no_urut + 1 : 1;
+
+    //         // Create the InspectingItem
+    //         $inspectingItem = [
+    //             'inspecting_id' => $inspecting->id,
+    //             'grade' => $validatedData['grade'],
+    //             'join_piece' => $validatedData['join_piece'] ?? null,
+    //             'qty' => $validatedData['qty'],
+    //             'note' => null,
+    //             'qty_sum' => null,
+    //             'is_head' => 0,
+    //             'qr_code' => 'INS-' . $inspecting->id . '-' . (InspectingMklbjItem::latest('id')->first()->id + 1),
+    //             'qty_count' => 0,
+    //             'qr_code_desc' => null,
+    //             'qr_print_at' => null,
+    //             'lot_no' => $validatedData['lot_no'] ?? '',
+    //             'defect' => null,
+    //             'qty_bit' => $validatedData['qty_bit'] ?? null,
+    //             'gsm_item' => $validatedData['gsm_item'] ?? null,
+    //             'no_urut' => $noUrut
+    //         ];
+
+    //         $inspectingItemModel = InspectingMklbjItem::create($inspectingItem);
+
+    //         // Store the defects if available
+    //         if (isset($validatedData['defect']) && is_array($validatedData['defect'])) {
+    //             foreach ($validatedData['defect'] as $defect) {
+    //                 $defectInspectingItem = [
+    //                     'inspecting_mklbj_item_id' => $inspectingItemModel->id,
+    //                     'mst_kode_defect_id' => $defect['mst_kode_defect_id'] ?? null,
+    //                     'meterage' => $defect['meterage'] ?? null,
+    //                     'point' => $defect['point'] ?? null,
+    //                 ];
+    //                 DefectInspectingItem::create($defectInspectingItem);
+    //             }
+    //         }
+
+    //         // Update the inspecting item data for qty_sum, qty_count, etc.
+    //         $items = InspectingMklbjItem::where('inspecting_id', $inspecting->id)->get();
+
+    //         foreach ($items as $item) {
+    //             $qtySum = InspectingMklbjItem::where('join_piece', $item->join_piece)
+    //                 ->where('inspecting_id', $inspecting->id)
+    //                 ->sum('qty');
+
+    //             $qtyCount = InspectingMklbjItem::where('join_piece', $item->join_piece)
+    //                 ->where('inspecting_id', $inspecting->id)
+    //                 ->count();
+
+    //             $isHead = InspectingMklbjItem::where('join_piece', $item->join_piece)
+    //                 ->where('inspecting_id', $inspecting->id)
+    //                 ->where('join_piece', '!=', '')
+    //                 ->orderByDesc('is_head')
+    //                 ->orderBy('id')
+    //                 ->first();
+
+    //             $item->qty_sum = ($isHead && $isHead->id != $item->id) ? null : ($item->join_piece == null || $item->join_piece == "" ? $item->qty : $qtySum);
+    //             $item->qr_code = 'MKL-' . $item->inspecting_id . '-' . $item->id;
+    //             $item->is_head = ($isHead && $isHead->id != $item->id) ? 0 : 1;
+    //             $item->qty_count = ($isHead && $isHead->id != $item->id) ? 0 : ($item->join_piece == null || $item->join_piece == "" ? 1 : $qtyCount);
+    //             $item->save();
+    //         }
+
+    //         return response()->json([
+    //             'success' => true,
+    //             'message' => 'Data Inspecting Item berhasil disimpan',
+    //             'data' => $inspectingItemModel,
+    //         ]);
+    //     } catch (\Exception $e) {
+    //         Log::error('Exception: ' . $e->getMessage());
+    //         return response()->json([
+    //             'success' => false,
+    //             'message' => 'Terjadi kesalahan saat menyimpan data',
+    //             'error' => $e->getMessage(),
+    //         ], 500);
+    //     }
+    // }
+
+        public function storeItemMklbj(Request $request)
     {
         try {
             $validator = Validator::make($request->all(), [
@@ -550,7 +665,7 @@ public function store(Request $request)
 
             $validatedData = $validator->validated();
 
-            // Ensure the inspecting_id exists in the Inspecting table
+            // Pastikan inspecting_id ada
             $inspecting = InspectingMklbj::find($validatedData['inspecting_id']);
             if (!$inspecting) {
                 return response()->json([
@@ -559,13 +674,15 @@ public function store(Request $request)
                 ], 404);
             }
 
-            $lastItem = InspectingMklbjItem::where('inspecting_id', $inspecting->id)
-            ->orderByDesc('no_urut')
-            ->first();
+            // Hitung no_urut dengan aman
+            $lastNoUrut = InspectingMklbjItem::where('inspecting_id', $inspecting->id)->max('no_urut');
+            $noUrut = $lastNoUrut ? $lastNoUrut + 1 : 1;
 
-            $noUrut = $lastItem ? $lastItem->no_urut + 1 : 1;
+            // Generate ID baru untuk qr_code
+            $lastId = InspectingMklbjItem::latest('id')->first()->id ?? 0;
+            $newId = $lastId + 1;
 
-            // Create the InspectingItem
+            // Simpan item baru
             $inspectingItem = [
                 'inspecting_id' => $inspecting->id,
                 'grade' => $validatedData['grade'],
@@ -574,7 +691,7 @@ public function store(Request $request)
                 'note' => null,
                 'qty_sum' => null,
                 'is_head' => 0,
-                'qr_code' => 'INS-' . $inspecting->id . '-' . (InspectingMklbjItem::latest('id')->first()->id + 1),
+                'qr_code' => 'INS-' . $inspecting->id . '-' . $newId,
                 'qty_count' => 0,
                 'qr_code_desc' => null,
                 'qr_print_at' => null,
@@ -587,20 +704,19 @@ public function store(Request $request)
 
             $inspectingItemModel = InspectingMklbjItem::create($inspectingItem);
 
-            // Store the defects if available
+            // Simpan defect jika ada
             if (isset($validatedData['defect']) && is_array($validatedData['defect'])) {
                 foreach ($validatedData['defect'] as $defect) {
-                    $defectInspectingItem = [
+                    DefectInspectingItem::create([
                         'inspecting_mklbj_item_id' => $inspectingItemModel->id,
                         'mst_kode_defect_id' => $defect['mst_kode_defect_id'] ?? null,
                         'meterage' => $defect['meterage'] ?? null,
                         'point' => $defect['point'] ?? null,
-                    ];
-                    DefectInspectingItem::create($defectInspectingItem);
+                    ]);
                 }
             }
 
-            // Update the inspecting item data for qty_sum, qty_count, etc.
+            // Update data qty_sum, qty_count, is_head
             $items = InspectingMklbjItem::where('inspecting_id', $inspecting->id)->get();
 
             foreach ($items as $item) {
@@ -614,15 +730,22 @@ public function store(Request $request)
 
                 $isHead = InspectingMklbjItem::where('join_piece', $item->join_piece)
                     ->where('inspecting_id', $inspecting->id)
+                    ->whereNotNull('join_piece')
                     ->where('join_piece', '!=', '')
                     ->orderByDesc('is_head')
                     ->orderBy('id')
                     ->first();
 
-                $item->qty_sum = ($isHead && $isHead->id != $item->id) ? null : ($item->join_piece == null || $item->join_piece == "" ? $item->qty : $qtySum);
-                $item->qr_code = 'MKL-' . $item->inspecting_id . '-' . $item->id;
+                $item->qty_sum = ($isHead && $isHead->id != $item->id)
+                    ? null
+                    : (($item->join_piece == null || $item->join_piece == '') ? $item->qty : $qtySum);
+
                 $item->is_head = ($isHead && $isHead->id != $item->id) ? 0 : 1;
-                $item->qty_count = ($isHead && $isHead->id != $item->id) ? 0 : ($item->join_piece == null || $item->join_piece == "" ? 1 : $qtyCount);
+                $item->qty_count = ($isHead && $isHead->id != $item->id)
+                    ? 0
+                    : (($item->join_piece == null || $item->join_piece == '') ? 1 : $qtyCount);
+
+                $item->qr_code = 'MKL-' . $item->inspecting_id . '-' . $item->id;
                 $item->save();
             }
 
@@ -640,6 +763,7 @@ public function store(Request $request)
             ], 500);
         }
     }
+
 
     public function storeItem(Request $request)
     {
@@ -682,11 +806,10 @@ public function store(Request $request)
 
             // $nextNoUrut = $lastItem ? $lastItem->no_urut + 1 : 1;
 
-             $lastItem = InspectingItem::where('inspecting_id', $inspecting->id)
-            ->orderByDesc('no_urut')
-            ->first();
+            $lastNoUrut = InspectingItem::where('inspecting_id', $inspecting->id)
+            ->max('no_urut');
 
-            $noUrut = $lastItem ? $lastItem->no_urut + 1 : 1;
+            $noUrut = $lastNoUrut ? $lastNoUrut + 1 : 1;
 
             // Create the InspectingItem
             $inspectingItem = [
