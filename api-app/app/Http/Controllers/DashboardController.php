@@ -214,6 +214,7 @@ class DashboardController extends Controller
                 'scGreige',
                 'kartuProsesDyeingItem'
             ])
+                ->whereIn('status', [3, 4, 5])
                 ->whereHas('mo', function($q) {
                     $q->where('process', 1);
                 })
@@ -1107,6 +1108,7 @@ public function store(Request $request)
                 'woColor.moColor',
                 'kartuProsesPrintingItem'
             ])
+                ->whereIn('status', [3, 4, 5])
                 ->whereHas('mo', function($q){
                     $q->where('process', 2);
                 })
