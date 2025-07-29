@@ -42,6 +42,12 @@ Route::prefix('v1')->group(function () {
         Route::get('get-master-defect', 'MstKodeDefectController@index');
     });
 
+    // Defect Inspecting Item Routes (Authenticated)
+    Route::group(['prefix' => 'defect-item', 'middleware' => 'api'], function () {
+        Route::get('get-defect-item', 'DefectItemController@countByNoUrut');
+
+    });
+
     // Work Order (WO) Routes (Authenticated)
     Route::group(['prefix' => 'wo', 'middleware' => 'api'], function () {
         Route::get('get-wo', 'KartuProsesDyeingController@getWo');
