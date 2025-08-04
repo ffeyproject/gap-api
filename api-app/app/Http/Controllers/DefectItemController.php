@@ -147,64 +147,12 @@ class DefectItemController extends Controller
 // }
 
 
-//     public function countByNoUrut(Request $request)
-// {
-//     $year = $request->query('tahun', now()->year);
-
-//     $rows = DB::table('defect_inspecting_items as dii')
-//         ->join('mst_kode_defect as mkd', 'dii.mst_kode_defect_id', '=', 'mkd.id')
-//         ->select(
-//             DB::raw('EXTRACT(MONTH FROM dii.created_at) as bulan'),
-//             'mkd.no_urut',
-//             'mkd.nama_defect',
-//             DB::raw('COUNT(*) as total'),
-//             DB::raw('SUM(dii.meterage) as total_meterage')
-//         )
-//         ->whereRaw('EXTRACT(YEAR FROM dii.created_at) = ?', [$year])
-//         ->groupBy(
-//             DB::raw('EXTRACT(MONTH FROM dii.created_at)'),
-//             'mkd.no_urut',
-//             'mkd.nama_defect'
-//         )
-//         ->orderBy(DB::raw('EXTRACT(MONTH FROM dii.created_at)'))
-//         ->orderBy('mkd.no_urut')
-//         ->get();
-
-//     // Nama bulan dalam Bahasa Indonesia
-//     $namaBulan = [
-//         1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
-//         5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus',
-//         9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
-//     ];
-
-//     $data = [];
-//     foreach ($rows as $row) {
-//         $bulanIndex = (int) $row->bulan;
-//         $bulanNama = $namaBulan[$bulanIndex] ?? "Bulan-$bulanIndex";
-//         $no_urut = $row->no_urut;
-
-//         $data[$bulanNama][$no_urut] = [
-//             'nama_defect' => $row->nama_defect,
-//             'total' => $row->total,
-//             'total_meterage' => (float) $row->total_meterage,
-//         ];
-//     }
-
-//     return response()->json([
-//         'success' => true,
-//         'year' => $year,
-//         'data' => $data
-//     ]);
-// }
-
     public function countByNoUrut(Request $request)
 {
     $year = $request->query('tahun', now()->year);
 
     $rows = DB::table('defect_inspecting_items as dii')
         ->join('mst_kode_defect as mkd', 'dii.mst_kode_defect_id', '=', 'mkd.id')
-        ->join('inspecting_mkl_bj_items as imi', 'dii.inspecting_mklbj_item_id', '=', 'imi.id')
-        ->join('inspecting_item as ii', 'dii.inspecting_item_id', '=', 'ii.id')
         ->select(
             DB::raw('EXTRACT(MONTH FROM dii.created_at) as bulan'),
             'mkd.no_urut',
@@ -213,15 +161,6 @@ class DefectItemController extends Controller
             DB::raw('SUM(dii.meterage) as total_meterage')
         )
         ->whereRaw('EXTRACT(YEAR FROM dii.created_at) = ?', [$year])
-        ->where(function ($query) {
-            $query->where(function ($q) {
-                $q->whereNotNull('imi.grade')
-                  ->whereIn('imi.grade', [2, 3]);
-            })->orWhere(function ($q) {
-                $q->whereNotNull('ii.grade')
-                  ->whereIn('ii.grade', [2, 3]);
-            });
-        })
         ->groupBy(
             DB::raw('EXTRACT(MONTH FROM dii.created_at)'),
             'mkd.no_urut',
@@ -231,6 +170,7 @@ class DefectItemController extends Controller
         ->orderBy('mkd.no_urut')
         ->get();
 
+    // Nama bulan dalam Bahasa Indonesia
     $namaBulan = [
         1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
         5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus',
@@ -256,7 +196,6 @@ class DefectItemController extends Controller
         'data' => $data
     ]);
 }
-
 
 
 
