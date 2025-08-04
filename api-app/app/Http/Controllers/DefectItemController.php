@@ -174,7 +174,7 @@ class DefectItemController extends Controller
     $rows = DB::table('defect_inspecting_items as dii')
     ->join('mst_kode_defect as mkd', 'dii.mst_kode_defect_id', '=', 'mkd.id')
     ->join('inspecting_mkl_bj_items as imi', 'dii.inspecting_mklbj_item_id', '=', 'imi.id')
-    ->join('inspecting_items as ii', 'dii.inspecting_item_id', '=', 'ii.id')
+    ->join('inspecting_item as ii', 'dii.inspecting_item_id', '=', 'ii.id')
     ->select(
         DB::raw('EXTRACT(MONTH FROM dii.created_at) as bulan'),
         'mkd.no_urut',
