@@ -26,6 +26,12 @@ class DefectInspectingItem extends Model
         return $this->belongsTo(InspectingItem::class, 'inspecting_item_id');
     }
 
+    public function inspectingMklbjItem()
+    {
+        return $this->belongsTo(InspectingMklbjItem::class, 'inspecting_mklbj_item_id');
+    }
+
+
     public function mstKodeDefect()
     {
         return $this->belongsTo(MstKodeDefect::class, 'mst_kode_defect_id');
