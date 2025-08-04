@@ -151,25 +151,50 @@ class DefectItemController extends Controller
 {
     $year = $request->query('tahun', now()->year);
 
+    // $rows = DB::table('defect_inspecting_items as dii')
+    //     ->join('mst_kode_defect as mkd', 'dii.mst_kode_defect_id', '=', 'mkd.id')
+    //     ->select(
+    //         DB::raw('EXTRACT(MONTH FROM dii.created_at) as bulan'),
+    //         'mkd.no_urut',
+    //         'mkd.nama_defect',
+    //         DB::raw('COUNT(*) as total'),
+    //         DB::raw('SUM(dii.meterage) as total_meterage')
+    //     )
+    //     ->whereRaw('EXTRACT(YEAR FROM dii.created_at) = ?', [$year])
+    //     ->groupBy(
+    //         DB::raw('EXTRACT(MONTH FROM dii.created_at)'),
+    //         'mkd.no_urut',
+    //         'mkd.nama_defect'
+    //     )
+    //     ->orderBy(DB::raw('EXTRACT(MONTH FROM dii.created_at)'))
+    //     ->orderBy('mkd.no_urut')
+    //     ->get();
+
+
     $rows = DB::table('defect_inspecting_items as dii')
-        ->join('mst_kode_defect as mkd', 'dii.mst_kode_defect_id', '=', 'mkd.id')
-        ->select(
-            DB::raw('EXTRACT(MONTH FROM dii.created_at) as bulan'),
-            'mkd.no_urut',
-            'mkd.nama_defect',
-            DB::raw('COUNT(*) as total'),
-            DB::raw('SUM(dii.meterage) as total_meterage')
-        )
-        ->whereRaw('EXTRACT(YEAR FROM dii.created_at) = ?', [$year])
-        ->whereIn('dii.grade', [2, 3])
-        ->groupBy(
-            DB::raw('EXTRACT(MONTH FROM dii.created_at)'),
-            'mkd.no_urut',
-            'mkd.nama_defect'
-        )
-        ->orderBy(DB::raw('EXTRACT(MONTH FROM dii.created_at)'))
-        ->orderBy('mkd.no_urut')
-        ->get();
+    ->join('mst_kode_defect as mkd', 'dii.mst_kode_defect_id', '=', 'mkd.id')
+    ->join('inspecting_mkl_bj_items as imi', 'dii.inspecting_mklbj_item_id', '=', 'imi.id')
+    ->join('inspecting_items as ii', 'dii.inspecting_item_id', '=', 'ii.id')
+    ->select(
+        DB::raw('EXTRACT(MONTH FROM dii.created_at) as bulan'),
+        'mkd.no_urut',
+        'mkd.nama_defect',
+        DB::raw('COUNT(*) as total'),
+        DB::raw('SUM(dii.meterage) as total_meterage')
+    )
+    ->whereRaw('EXTRACT(YEAR FROM dii.created_at) = ?', [$year])
+    ->where(function ($query) {
+        $query->whereIn('imi.grade', [2, 3])
+              ->orWhereIn('ii.grade', [2, 3]);
+    }) // ✅ Filter jika grade B atau C di salah satu tabel
+    ->groupBy(
+        DB::raw('EXTRACT(MONTH FROM dii.created_at)'),
+        'mkd.no_urut',
+        'mkd.nama_defect'
+    )
+    ->orderBy(DB::raw('EXTRACT(MONTH FROM dii.created_at)'))
+    ->orderBy('mkd.no_urut')
+    ->get();
 
     // Nama bulan dalam Bahasa Indonesia
     $namaBulan = [
