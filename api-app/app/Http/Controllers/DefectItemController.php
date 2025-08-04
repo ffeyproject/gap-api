@@ -161,6 +161,7 @@ class DefectItemController extends Controller
             DB::raw('SUM(dii.meterage) as total_meterage')
         )
         ->whereRaw('EXTRACT(YEAR FROM dii.created_at) = ?', [$year])
+        ->whereIn('dii.grade', [2, 3])
         ->groupBy(
             DB::raw('EXTRACT(MONTH FROM dii.created_at)'),
             'mkd.no_urut',
