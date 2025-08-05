@@ -90,201 +90,92 @@ class DefectItemController extends Controller
     }
 
 
-//     public function countByNoUrut(Request $request)
-// {
-//     $year = $request->query('tahun', now()->year);
 
-//     $rows = DB::table('defect_inspecting_items as dii')
-//         ->join('mst_kode_defect as mkd', 'dii.mst_kode_defect_id', '=', 'mkd.id')
-//         ->select(
-//             DB::raw('EXTRACT(MONTH FROM dii.created_at) as bulan'),
-//             'mkd.no_urut',
-//             'mkd.nama_defect',
-//             DB::raw('COUNT(*) as total')
-//         )
-//         ->whereRaw('EXTRACT(YEAR FROM dii.created_at) = ?', [$year])
-//         ->groupBy(
-//             DB::raw('EXTRACT(MONTH FROM dii.created_at)'),
-//             'mkd.no_urut',
-//             'mkd.nama_defect'
-//         )
-//         ->orderBy(DB::raw('EXTRACT(MONTH FROM dii.created_at)'))
-//         ->orderBy('mkd.no_urut')
-//         ->get();
+    public function countByNoUrut(Request $request)
+    {
+        $year = $request->query('tahun', now()->year);
 
-//     $namaBulan = [
-//         1 => 'Januari',
-//         2 => 'Februari',
-//         3 => 'Maret',
-//         4 => 'April',
-//         5 => 'Mei',
-//         6 => 'Juni',
-//         7 => 'Juli',
-//         8 => 'Agustus',
-//         9 => 'September',
-//         10 => 'Oktober',
-//         11 => 'November',
-//         12 => 'Desember',
-//     ];
+        $items = DefectInspectingItem::with([
+                'mstKodeDefect',
+                'inspectingItem.inspecting',
+                'inspectingMklbjItem.inspectingMklbj',
+            ])
+            ->whereYear('created_at', $year)
+            ->whereHas('mstKodeDefect', function ($q) {
+                $q->whereNotNull('no_urut');
+            })
+            ->where(function ($query) {
+                // Filter status 4 (Inspecting) atau 3 (InspectingMklbj)
+                $query->whereHas('inspectingItem.inspecting', function ($q) {
+                    $q->where('status', 4);
+                })->orWhereHas('inspectingMklbjItem.inspectingMklbj', function ($q) {
+                    $q->where('status', 3);
+                });
+            })
+            ->where(function ($query) {
+                $query->where(function ($q) {
+                    $q->whereHas('inspectingItem', function ($sub) {
+                        $sub->whereIn('grade', [2, 3]);
+                    })->orWhereDoesntHave('inspectingItem');
+                })->where(function ($q) {
+                    $q->whereHas('inspectingMklbjItem', function ($sub) {
+                        $sub->whereIn('grade', [2, 3]);
+                    })->orWhereDoesntHave('inspectingMklbjItem');
+                });
+            })
+            ->get();
 
-//     $data = [];
-//     foreach ($rows as $row) {
-//         $bulanIndex = (int) $row->bulan;
-//         $bulanNama = $namaBulan[$bulanIndex] ?? "Bulan-$bulanIndex";
-//         $no_urut = $row->no_urut;
+        // Inisialisasi nama bulan
+        $namaBulan = [
+            1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
+            5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus',
+            9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
+        ];
 
-//         $data[$bulanNama][$no_urut] = [
-//             'nama_defect' => $row->nama_defect,
-//             'total' => $row->total,
-//         ];
-//     }
+        $data = [];
 
-//     return response()->json([
-//         'success' => true,
-//         'year' => $year,
-//         'data' => $data
-//     ]);
-// }
+        foreach ($items as $item) {
+            $bulan = optional($item->created_at)->format('n'); // bulan numerik (1–12)
+            if (!$bulan) continue;
 
+            $bulanNama = $namaBulan[(int) $bulan] ?? "Bulan-$bulan";
+            $no_urut = optional($item->mstKodeDefect)->no_urut;
+            $nama_defect = optional($item->mstKodeDefect)->nama_defect;
 
-//     public function countByNoUrut(Request $request)
-// {
-//     $year = $request->query('tahun', now()->year);
+            if ($no_urut === null) continue;
 
-//     $rows = DB::table('defect_inspecting_items as dii')
-//         ->join('mst_kode_defect as mkd', 'dii.mst_kode_defect_id', '=', 'mkd.id')
-//         ->select(
-//             DB::raw('EXTRACT(MONTH FROM dii.created_at) as bulan'),
-//             'mkd.no_urut',
-//             'mkd.nama_defect',
-//             DB::raw('COUNT(*) as total'),
-//             DB::raw('SUM(dii.meterage) as total_meterage')
-//         )
-//         ->whereRaw('EXTRACT(YEAR FROM dii.created_at) = ?', [$year])
-//         ->groupBy(
-//             DB::raw('EXTRACT(MONTH FROM dii.created_at)'),
-//             'mkd.no_urut',
-//             'mkd.nama_defect'
-//         )
-//         ->orderBy(DB::raw('EXTRACT(MONTH FROM dii.created_at)'))
-//         ->orderBy('mkd.no_urut')
-//         ->get();
+            if (!isset($data[$bulanNama][$no_urut])) {
+                $data[$bulanNama][$no_urut] = [
+                    'nama_defect' => $nama_defect,
+                    'total' => 0,
+                    'total_meterage' => 0.0,
+                ];
+            }
 
-//     // Nama bulan dalam Bahasa Indonesia
-//     $namaBulan = [
-//         1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
-//         5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus',
-//         9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
-//     ];
+            $data[$bulanNama][$no_urut]['total'] += 1;
+            $data[$bulanNama][$no_urut]['total_meterage'] += (float) $item->meterage;
+        }
 
-//     $data = [];
-//     foreach ($rows as $row) {
-//         $bulanIndex = (int) $row->bulan;
-//         $bulanNama = $namaBulan[$bulanIndex] ?? "Bulan-$bulanIndex";
-//         $no_urut = $row->no_urut;
-
-//         $data[$bulanNama][$no_urut] = [
-//             'nama_defect' => $row->nama_defect,
-//             'total' => $row->total,
-//             'total_meterage' => (float) $row->total_meterage,
-//         ];
-//     }
-
-//     return response()->json([
-//         'success' => true,
-//         'year' => $year,
-//         'data' => $data
-//     ]);
-// }
+        return response()->json([
+            'success' => true,
+            'year' => $year,
+            'data' => $data
+        ]);
+    }
 
 
-// public function countByNoUrut(Request $request)
-// {
-//     $year = $request->query('tahun', now()->year);
 
-//     $rows = DB::table('defect_inspecting_items as dii')
-//         ->join('mst_kode_defect as mkd', 'dii.mst_kode_defect_id', '=', 'mkd.id')
-//         ->leftJoin('inspecting_mkl_bj_items as imi', 'dii.inspecting_mklbj_item_id', '=', 'imi.id')
-//         ->leftJoin('inspecting_item as ii', 'dii.inspecting_item_id', '=', 'ii.id')
-//         ->leftJoin('inspecting_mkl_bj as im', 'imi.inspecting_id', '=', 'im.id') // ✅ JOIN ke inspecting_mkl_bj
-//         ->leftJoin('trn_inspecting as ti', 'ii.inspecting_id', '=', 'ti.id')     // ✅ JOIN ke trn_inspecting
-//         ->select(
-//             DB::raw('EXTRACT(MONTH FROM COALESCE(dii.created_at, NOW())) as bulan'),
-//             'mkd.no_urut',
-//             'mkd.nama_defect',
-//             DB::raw('COUNT(*) as total'),
-//             DB::raw('SUM(dii.meterage) as total_meterage')
-//         )
-//         ->whereRaw('EXTRACT(YEAR FROM COALESCE(dii.created_at, NOW())) = ?', [$year])
-//         ->where('ti.status', 4)
-//         ->where(function ($query) {
-//             $query->where(function ($q) {
-//                 $q->whereNotNull('imi.grade')
-//                    ->whereIn('imi.grade', [2, 3]);
-//             })->orWhere(function ($q) {
-//                 $q->whereNotNull('ii.grade')
-//                    ->whereIn('ii.grade', [2, 3]);
-//             });
-//         })
-//         ->where(function ($query1) {
-//             $query1->where(function ($q) {
-//                 $q->whereNotNull('imi.grade')
-//                    ->whereIn('imi.grade', [2, 3]);
-//             })->orWhere(function ($q) {
-//                 $q->whereNotNull('ii.grade')
-//                    ->whereIn('ii.grade', [2, 3]);
-//             });
-//         })
-//         ->groupBy(
-//             DB::raw('EXTRACT(MONTH FROM COALESCE(dii.created_at, NOW()))'),
-//             'mkd.no_urut',
-//             'mkd.nama_defect'
-//         )
-//         ->orderBy(DB::raw('EXTRACT(MONTH FROM COALESCE(dii.created_at, NOW()))'))
-//         ->orderBy('mkd.no_urut')
-//         ->get();
+    public function getDefectWithTglKirim(Request $request)
+    {
+        $startDate = $request->query('start_date');
+        $endDate = $request->query('end_date');
 
-//     $namaBulan = [
-//         1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
-//         5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus',
-//         9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
-//     ];
-
-//     $data = [];
-//     foreach ($rows as $row) {
-//         $bulanIndex = (int) $row->bulan;
-//         $bulanNama = $namaBulan[$bulanIndex] ?? "Bulan-$bulanIndex";
-//         $no_urut = $row->no_urut;
-
-//         $data[$bulanNama][$no_urut] = [
-//             'nama_defect' => $row->nama_defect,
-//             'total' => $row->total,
-//             'total_meterage' => (float) $row->total_meterage,
-//         ];
-//     }
-
-//     return response()->json([
-//         'success' => true,
-//         'year' => $year,
-//         'data' => $data
-//     ]);
-// }
-
-public function countByNoUrut(Request $request)
-{
-    $year = $request->query('tahun', now()->year);
-
-    $items = DefectInspectingItem::with([
+        $data = DefectInspectingItem::with([
             'mstKodeDefect',
-            'inspectingItem.inspecting',
-            'inspectingMklbjItem.inspectingMklbj',
+            'inspectingItem.inspecting.wo.greige',
+            'inspectingMklbjItem.inspectingMklbj.wo.greige',
         ])
-        ->whereYear('created_at', $year)
-        ->whereHas('mstKodeDefect', function ($q) {
-            $q->whereNotNull('no_urut');
-        })
         ->where(function ($query) {
-            // Filter status 4 (Inspecting) atau 3 (InspectingMklbj)
             $query->whereHas('inspectingItem.inspecting', function ($q) {
                 $q->where('status', 4);
             })->orWhereHas('inspectingMklbjItem.inspectingMklbj', function ($q) {
@@ -302,45 +193,85 @@ public function countByNoUrut(Request $request)
                 })->orWhereDoesntHave('inspectingMklbjItem');
             });
         })
-        ->get();
+        ->when($startDate && $endDate, function ($query) use ($startDate, $endDate) {
+            $query->whereHas('inspectingItem.inspecting', function ($sub) use ($startDate, $endDate) {
+                $sub->whereBetween('date', [$startDate, $endDate]);
+            })->whereHas('inspectingMklbjItem.inspectingMklbj', function ($sub) use ($startDate, $endDate) {
+                $sub->whereBetween('tgl_kirim', [$startDate, $endDate]);
+            });
+        })
+        ->get()
+        ->groupBy(function ($item) {
+            $noUrut = optional($item->mstKodeDefect)->no_urut;
+            $namaDefect = optional($item->mstKodeDefect)->nama_defect;
+            return $noUrut . '|' . $namaDefect;
+        })
+        ->map(function ($groupedItems, $key) {
+            [$noUrut, $namaDefect] = explode('|', $key);
 
-    // Inisialisasi nama bulan
-    $namaBulan = [
-        1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
-        5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus',
-        9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
-    ];
+            $grade2 = [];
+            $grade3 = [];
 
-    $data = [];
+            foreach ($groupedItems as $item) {
+                $grade = optional($item->inspectingItem)->grade ?? optional($item->inspectingMklbjItem)->grade;
+                $namaKain = optional(optional(optional($item->inspectingItem)->inspecting)->wo)->greige->nama_kain
+                    ?? optional(optional(optional($item->inspectingMklbjItem)->inspectingMklbj)->wo)->greige->nama_kain;
 
-    foreach ($items as $item) {
-        $bulan = optional($item->created_at)->format('n'); // bulan numerik (1–12)
-        if (!$bulan) continue;
+                if (!$namaKain) {
+                    continue;
+                }
 
-        $bulanNama = $namaBulan[(int) $bulan] ?? "Bulan-$bulan";
-        $no_urut = optional($item->mstKodeDefect)->no_urut;
-        $nama_defect = optional($item->mstKodeDefect)->nama_defect;
+                if ($grade == 2) {
+                    if (!isset($grade2[$namaKain])) {
+                        $grade2[$namaKain] = 0;
+                    }
+                    $grade2[$namaKain] += $item->meterage;
+                } elseif ($grade == 3) {
+                    if (!isset($grade3[$namaKain])) {
+                        $grade3[$namaKain] = 0;
+                    }
+                    $grade3[$namaKain] += $item->meterage;
+                }
+            }
 
-        if ($no_urut === null) continue;
+            $grade2Arr = collect($grade2)->map(function ($meterage, $namaKain) {
+                return [
+                    'nama_kain' => $namaKain,
+                    'meterage' => $meterage,
+                ];
+            })->values();
 
-        if (!isset($data[$bulanNama][$no_urut])) {
-            $data[$bulanNama][$no_urut] = [
-                'nama_defect' => $nama_defect,
-                'total' => 0,
-                'total_meterage' => 0.0,
+            $grade3Arr = collect($grade3)->map(function ($meterage, $namaKain) {
+                return [
+                    'nama_kain' => $namaKain,
+                    'meterage' => $meterage,
+                ];
+            })->values();
+
+            return [
+                'no_urut' => (int)$noUrut,
+                'nama_defect' => $namaDefect,
+                'total_grade_2' => $grade2Arr->sum('meterage'),
+                'total_grade_3' => $grade3Arr->sum('meterage'),
+                'grade_2' => $grade2Arr,
+                'grade_3' => $grade3Arr,
             ];
-        }
+        })
+        ->sortByDesc(function ($item) {
+            return $item['total_grade_2'] + $item['total_grade_3'];
+        })
+        ->values();
 
-        $data[$bulanNama][$no_urut]['total'] += 1;
-        $data[$bulanNama][$no_urut]['total_meterage'] += (float) $item->meterage;
+        return response()->json([
+            'success' => true,
+            'data' => $data,
+        ]);
     }
 
-    return response()->json([
-        'success' => true,
-        'year' => $year,
-        'data' => $data
-    ]);
-}
+
+
+
+
 
 
 }

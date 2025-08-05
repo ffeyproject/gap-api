@@ -435,6 +435,7 @@ public function rekapPengirimanProduksi(Request $request)
     $jenisInspekMap = [
         1 => 'Fresh Order',
         2 => 'Re-Packing',
+        3 => 'Hasil Perbaikan',
     ];
 
     // =========================
@@ -942,6 +943,7 @@ public function rekapPengirimanProduksi(Request $request)
     $jenisInspekMap = [
         1 => 'Fresh Order',
         2 => 'Re-Packing',
+        3 => 'Hasil Perbaikan',
     ];
 
     // =========================

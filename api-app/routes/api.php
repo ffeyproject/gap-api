@@ -42,9 +42,14 @@ Route::prefix('v1')->group(function () {
         Route::get('get-master-defect', 'MstKodeDefectController@index');
     });
 
+    Route::group(['prefix' => 'customer', 'middleware' => 'api'], function () {
+        Route::get('get-customer', 'CustomerController@index');
+    });
+
     // Defect Inspecting Item Routes (Authenticated)
     Route::group(['prefix' => 'defect-item', 'middleware' => 'api'], function () {
         Route::get('get-defect-item', 'DefectItemController@countByNoUrut');
+        Route::get('get-defect-tgl-kirim', 'DefectItemController@getDefectWithTglKirim');
 
     });
 
@@ -98,6 +103,10 @@ Route::prefix('v1')->group(function () {
         Route::get('analisa-pengiriman-produksi', 'VerpackingController@analisaPengirimanProduksi');
         Route::get('analisa-pengiriman-produksi-mklbj', 'VerpackingController@analisaPengirimanProduksiMklbj');
         Route::get('rekap-pengiriman-harian', 'VerpackingController@rekapPengirimanHarian');
+    });
+
+    Route::group(['prefix' => 'marketing', 'middleware' => 'api'], function () {
+        Route::get('outstanding', 'MarketingController@outstanding');
     });
 
 
