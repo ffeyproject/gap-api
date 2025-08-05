@@ -8,6 +8,7 @@ use App\MstKodeDefect;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Log;
 
 class DefectItemController extends Controller
 {
@@ -165,109 +166,220 @@ class DefectItemController extends Controller
 
 
 
+    // public function getDefectWithTglKirim(Request $request)
+    // {
+    //     $startDate = $request->query('start_date');
+    //     $endDate = $request->query('end_date');
+
+    //     $data = DefectInspectingItem::with([
+    //         'mstKodeDefect',
+    //         'inspectingItem.inspecting.wo.greige',
+    //         'inspectingMklbjItem.inspectingMklbj.wo.greige',
+    //     ])
+    //     ->where(function ($query) {
+    //         $query->whereHas('inspectingItem.inspecting', function ($q) {
+    //             $q->where('status', 4);
+    //         })->orWhereHas('inspectingMklbjItem.inspectingMklbj', function ($q) {
+    //             $q->where('status', 3);
+    //         });
+    //     })
+    //     ->where(function ($query) {
+    //         $query->where(function ($q) {
+    //             $q->whereHas('inspectingItem', function ($sub) {
+    //                 $sub->whereIn('grade', [2, 3]);
+    //             })->orWhereDoesntHave('inspectingItem');
+    //         })->where(function ($q) {
+    //             $q->whereHas('inspectingMklbjItem', function ($sub) {
+    //                 $sub->whereIn('grade', [2, 3]);
+    //             })->orWhereDoesntHave('inspectingMklbjItem');
+    //         });
+    //     })
+    //     ->when($startDate && $endDate, function ($query) use ($startDate, $endDate) {
+    //         $query->whereHas('inspectingItem.inspecting', function ($sub) use ($startDate, $endDate) {
+    //             $sub->whereBetween('date', [$startDate, $endDate]);
+    //         })->whereHas('inspectingMklbjItem.inspectingMklbj', function ($sub) use ($startDate, $endDate) {
+    //             $sub->whereBetween('tgl_kirim', [$startDate, $endDate]);
+    //         });
+    //     })
+    //     ->get()
+    //     ->groupBy(function ($item) {
+    //         $noUrut = optional($item->mstKodeDefect)->no_urut;
+    //         $namaDefect = optional($item->mstKodeDefect)->nama_defect;
+    //         return $noUrut . '|' . $namaDefect;
+    //     })
+    //     ->map(function ($groupedItems, $key) {
+    //         [$noUrut, $namaDefect] = explode('|', $key);
+
+    //         $grade2 = [];
+    //         $grade3 = [];
+
+    //         foreach ($groupedItems as $item) {
+    //             $grade = optional($item->inspectingItem)->grade ?? optional($item->inspectingMklbjItem)->grade;
+    //             $namaKain = optional(optional(optional($item->inspectingItem)->inspecting)->wo)->greige->nama_kain
+    //                 ?? optional(optional(optional($item->inspectingMklbjItem)->inspectingMklbj)->wo)->greige->nama_kain;
+
+    //             if (!$namaKain) {
+    //                 continue;
+    //             }
+
+    //             if ($grade == 2) {
+    //                 if (!isset($grade2[$namaKain])) {
+    //                     $grade2[$namaKain] = 0;
+    //                 }
+    //                 $grade2[$namaKain] += $item->meterage;
+    //             } elseif ($grade == 3) {
+    //                 if (!isset($grade3[$namaKain])) {
+    //                     $grade3[$namaKain] = 0;
+    //                 }
+    //                 $grade3[$namaKain] += $item->meterage;
+    //             }
+    //         }
+
+    //         $grade2Arr = collect($grade2)->map(function ($meterage, $namaKain) {
+    //             return [
+    //                 'nama_kain' => $namaKain,
+    //                 'meterage' => $meterage,
+    //             ];
+    //         })->values();
+
+    //         $grade3Arr = collect($grade3)->map(function ($meterage, $namaKain) {
+    //             return [
+    //                 'nama_kain' => $namaKain,
+    //                 'meterage' => $meterage,
+    //             ];
+    //         })->values();
+
+    //         return [
+    //             'no_urut' => (int)$noUrut,
+    //             'nama_defect' => $namaDefect,
+    //             'total_grade_2' => $grade2Arr->sum('meterage'),
+    //             'total_grade_3' => $grade3Arr->sum('meterage'),
+    //             'grade_2' => $grade2Arr,
+    //             'grade_3' => $grade3Arr,
+    //         ];
+    //     })
+    //     ->sortByDesc(function ($item) {
+    //         return $item['total_grade_2'] + $item['total_grade_3'];
+    //     })
+    //     ->values();
+
+    //     return response()->json([
+    //         'success' => true,
+    //         'data' => $data,
+    //     ]);
+    // }
+
+
     public function getDefectWithTglKirim(Request $request)
     {
-        $startDate = $request->query('start_date');
-        $endDate = $request->query('end_date');
+        $request->validate([
+            'start_date' => 'date',
+            'end_date' => 'date'
+        ]);
 
-        $data = DefectInspectingItem::with([
-            'mstKodeDefect',
-            'inspectingItem.inspecting.wo.greige',
-            'inspectingMklbjItem.inspectingMklbj.wo.greige',
-        ])
-        ->where(function ($query) {
-            $query->whereHas('inspectingItem.inspecting', function ($q) {
-                $q->where('status', 4);
-            })->orWhereHas('inspectingMklbjItem.inspectingMklbj', function ($q) {
-                $q->where('status', 3);
-            });
-        })
-        ->where(function ($query) {
-            $query->where(function ($q) {
-                $q->whereHas('inspectingItem', function ($sub) {
-                    $sub->whereIn('grade', [2, 3]);
-                })->orWhereDoesntHave('inspectingItem');
-            })->where(function ($q) {
-                $q->whereHas('inspectingMklbjItem', function ($sub) {
-                    $sub->whereIn('grade', [2, 3]);
-                })->orWhereDoesntHave('inspectingMklbjItem');
-            });
-        })
-        ->when($startDate && $endDate, function ($query) use ($startDate, $endDate) {
-            $query->whereHas('inspectingItem.inspecting', function ($sub) use ($startDate, $endDate) {
-                $sub->whereBetween('date', [$startDate, $endDate]);
-            })->whereHas('inspectingMklbjItem.inspectingMklbj', function ($sub) use ($startDate, $endDate) {
-                $sub->whereBetween('tgl_kirim', [$startDate, $endDate]);
-            });
-        })
-        ->get()
-        ->groupBy(function ($item) {
-            $noUrut = optional($item->mstKodeDefect)->no_urut;
-            $namaDefect = optional($item->mstKodeDefect)->nama_defect;
-            return $noUrut . '|' . $namaDefect;
-        })
-        ->map(function ($groupedItems, $key) {
-            [$noUrut, $namaDefect] = explode('|', $key);
+        // Log::info('Full request body:', $request->all());
+        // Log::info('Query string:', $request->query());
+        // Log::info('start_date via input(): ' . $request->input('start_date'));
+        // Log::info('start_date via query(): ' . $request->query('start_date'));
 
-            $grade2 = [];
-            $grade3 = [];
+        $startDate = $request->input('start_date');
+            $endDate = $request->input('end_date');
 
-            foreach ($groupedItems as $item) {
-                $grade = optional($item->inspectingItem)->grade ?? optional($item->inspectingMklbjItem)->grade;
-                $namaKain = optional(optional(optional($item->inspectingItem)->inspecting)->wo)->greige->nama_kain
-                    ?? optional(optional(optional($item->inspectingMklbjItem)->inspectingMklbj)->wo)->greige->nama_kain;
+            $data = DefectInspectingItem::with([
+                'mstKodeDefect',
+                'inspectingItem.inspecting.wo.greige',
+                'inspectingMklbjItem.inspectingMklbj.wo.greige',
+            ])
+            ->where(function ($query) {
+                // Status harus memenuhi dua kondisi ini
+                $query->whereHas('inspectingItem.inspecting', function ($q) {
+                    $q->where('status', 4);
+                })->orWhereHas('inspectingMklbjItem.inspectingMklbj', function ($q) {
+                    $q->where('status', 3);
+                });
+            })
+            ->where(function ($query) {
+                // Grade harus 2 atau 3
+                $query->whereHas('inspectingItem', function ($q) {
+                    $q->whereIn('grade', [2, 3]);
+                })->orWhereHas('inspectingMklbjItem', function ($q) {
+                    $q->whereIn('grade', [2, 3]);
+                });
+            })
+            ->when($startDate && $endDate, function ($query) use ($startDate, $endDate) {
+                // Filter tanggal (AND logic antar relasi)
+                $query->where(function ($q) use ($startDate, $endDate) {
+                    $q->where(function ($sub) use ($startDate, $endDate) {
+                        $sub->whereHas('inspectingItem.inspecting', function ($inner) use ($startDate, $endDate) {
+                            $inner->whereBetween('date', [$startDate, $endDate]);
+                        });
+                    })->orWhere(function ($sub) use ($startDate, $endDate) {
+                        $sub->whereHas('inspectingMklbjItem.inspectingMklbj', function ($inner) use ($startDate, $endDate) {
+                            $inner->whereBetween('tgl_kirim', [$startDate, $endDate]);
+                        });
+                    });
+                });
+            })
+            ->get()
+            ->groupBy(function ($item) {
+                $noUrut = optional($item->mstKodeDefect)->no_urut;
+                $namaDefect = optional($item->mstKodeDefect)->nama_defect;
+                return $noUrut . '|' . $namaDefect;
+            })
+            ->map(function ($groupedItems, $key) {
+                [$noUrut, $namaDefect] = explode('|', $key);
 
-                if (!$namaKain) {
-                    continue;
+                $grade2 = [];
+                $grade3 = [];
+
+                foreach ($groupedItems as $item) {
+                    $grade = optional($item->inspectingItem)->grade ?? optional($item->inspectingMklbjItem)->grade;
+                    $namaKain = optional(optional(optional($item->inspectingItem)->inspecting)->wo)->greige->nama_kain
+                        ?? optional(optional(optional($item->inspectingMklbjItem)->inspectingMklbj)->wo)->greige->nama_kain;
+
+                    if (!$namaKain) continue;
+
+                    if ($grade == 2) {
+                        $grade2[$namaKain] = ($grade2[$namaKain] ?? 0) + $item->meterage;
+                    } elseif ($grade == 3) {
+                        $grade3[$namaKain] = ($grade3[$namaKain] ?? 0) + $item->meterage;
+                    }
                 }
 
-                if ($grade == 2) {
-                    if (!isset($grade2[$namaKain])) {
-                        $grade2[$namaKain] = 0;
-                    }
-                    $grade2[$namaKain] += $item->meterage;
-                } elseif ($grade == 3) {
-                    if (!isset($grade3[$namaKain])) {
-                        $grade3[$namaKain] = 0;
-                    }
-                    $grade3[$namaKain] += $item->meterage;
-                }
-            }
+                $grade2Arr = collect($grade2)->map(function ($meterage, $namaKain) {
+                    return [
+                        'nama_kain' => $namaKain,
+                        'meterage' => $meterage,
+                    ];
+                })->values();
 
-            $grade2Arr = collect($grade2)->map(function ($meterage, $namaKain) {
+                $grade3Arr = collect($grade3)->map(function ($meterage, $namaKain) {
+                    return [
+                        'nama_kain' => $namaKain,
+                        'meterage' => $meterage,
+                    ];
+                })->values();
+
                 return [
-                    'nama_kain' => $namaKain,
-                    'meterage' => $meterage,
+                    'no_urut' => (int) $noUrut,
+                    'nama_defect' => $namaDefect,
+                    'total_grade_2' => $grade2Arr->sum('meterage'),
+                    'total_grade_3' => $grade3Arr->sum('meterage'),
+                    'grade_2' => $grade2Arr,
+                    'grade_3' => $grade3Arr,
+
                 ];
-            })->values();
+            })
+            ->sortByDesc(function ($item) {
+                return $item['total_grade_2'] + $item['total_grade_3'];
+            })
+            ->values();
 
-            $grade3Arr = collect($grade3)->map(function ($meterage, $namaKain) {
-                return [
-                    'nama_kain' => $namaKain,
-                    'meterage' => $meterage,
-                ];
-            })->values();
-
-            return [
-                'no_urut' => (int)$noUrut,
-                'nama_defect' => $namaDefect,
-                'total_grade_2' => $grade2Arr->sum('meterage'),
-                'total_grade_3' => $grade3Arr->sum('meterage'),
-                'grade_2' => $grade2Arr,
-                'grade_3' => $grade3Arr,
-            ];
-        })
-        ->sortByDesc(function ($item) {
-            return $item['total_grade_2'] + $item['total_grade_3'];
-        })
-        ->values();
-
-        return response()->json([
-            'success' => true,
-            'data' => $data,
+            return response()->json([
+                'success' => true,
+                'data' => $data,
         ]);
     }
-
 
 
 
