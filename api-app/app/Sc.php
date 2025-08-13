@@ -92,4 +92,9 @@ class Sc extends Model
     {
         return $this->belongsTo(User::class, 'updated_by');
     }
+
+    public function mo()
+    {
+        return $this->hasMany(Mo::class, 'sc_id');
+    }
 }

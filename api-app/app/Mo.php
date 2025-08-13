@@ -69,6 +69,7 @@ class Mo extends Model
         'updated_by',
         'handling',
         'no_lab_dip',
+        'no_po',
         'persen_grading',
     ];
 
@@ -107,5 +108,10 @@ class Mo extends Model
     public function updatedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    public function wo()
+    {
+        return $this->hasMany(Wo::class, 'mo_id');
     }
 }

@@ -109,4 +109,16 @@ class KartuProsesDyeing extends Model
     {
         return $this->hasMany(KartuProsesDyeingItem::class, 'kartu_process_id', 'id');
     }
+
+    public function kartuProsesDyeingProcesses()
+    {
+        return $this->hasMany(KartuProcessDyeingProcess::class, 'kartu_process_id', 'id');
+    }
+
+    public function inspectings()
+    {
+        return $this->hasMany(Inspecting::class, 'kartu_process_dyeing_id', 'id');
+    }
+
+
 }

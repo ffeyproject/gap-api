@@ -5,6 +5,7 @@ namespace App;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class MoColor extends Model
 {
@@ -35,5 +36,10 @@ class MoColor extends Model
     public function scGreige(): BelongsTo
     {
         return $this->belongsTo(ScGreige::class);
+    }
+
+    public function woColor(): HasMany
+    {
+        return $this->hasMany(WoColor::class, 'mo_color_id');
     }
 }
