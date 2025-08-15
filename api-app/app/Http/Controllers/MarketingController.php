@@ -147,6 +147,8 @@ public function outstanding(Request $request)
         'customer_id' => 'required|numeric',
         'start_date'  => 'required|date',
         'end_date'    => 'required|date',
+        'po_no'       => 'nullable|string',
+        'no_wo'       => 'nullable|string',
     ]);
 
     if ($validator->fails()) {
@@ -161,25 +163,8 @@ public function outstanding(Request $request)
     $customerId = $validated['customer_id'];
     $startDate  = $validated['start_date'];
     $endDate    = $validated['end_date'];
-
-    // $qtySumByKartu = \DB::table('trn_inspecting as i')
-    // ->join('inspecting_item as ii', 'ii.inspecting_id', '=', 'i.id')
-    // ->select(
-    //     'i.kartu_process_dyeing_id',
-    //     \DB::raw('SUM(ii.qty) as qty_sum'),
-    //     \DB::raw('MIN(i.unit) as unit')
-    // )
-    // ->where('i.status', 4)
-    // ->groupBy('i.kartu_process_dyeing_id')
-    // ->get()
-    // ->keyBy('kartu_process_dyeing_id')
-    // ->map(function ($row) {
-    //     return [
-    //         'qty_sum' => $row->qty_sum,
-    //         'unit'    => $row->unit,
-    //     ];
-    // });
-
+    $poNo       = $validated['po_no'] ?? null;
+    $noWo       = $validated['no_wo'] ?? null;
 
     $qtySumByKartu = \DB::table('trn_inspecting as i')
     ->join('inspecting_item as ii', 'ii.inspecting_id', '=', 'i.id')
@@ -208,13 +193,29 @@ public function outstanding(Request $request)
 
     // Ambil data SC dengan relasi MO, WO, proses
     $scs = Sc::with([
-        'mo' => function ($query) {
+        'mo' => function ($query) use ($poNo, $noWo) {
             $query->where('status', 3)
                 ->where('process', 1)
+                ->when($poNo, function ($q) use ($poNo) {
+                    $q->whereNotNull('no_po')
+                      ->where('no_po', 'like', "%{$poNo}%");
+                })
+                // ->with([
+                //     'wo.woColor.kartuProsesDyeings.kartuProsesDyeingItem',
+                //     'wo.woColor.kartuProsesDyeings.kartuProsesDyeingProcesses.processDyeing',
+                // ]);
                 ->with([
-                    'wo.woColor.kartuProsesDyeings.kartuProsesDyeingItem',
-                    'wo.woColor.kartuProsesDyeings.kartuProsesDyeingProcesses.processDyeing',
-                ]);
+                'wo' => function ($woQuery) use ($noWo) {
+                    $woQuery->when($noWo, function ($wq) use ($noWo) {
+                        $wq->whereNotNull('no')
+                           ->where('no', 'like', "%{$noWo}%");
+                    })
+                    ->with([
+                        'woColor.kartuProsesDyeings.kartuProsesDyeingItem',
+                        'woColor.kartuProsesDyeings.kartuProsesDyeingProcesses.processDyeing',
+                    ]);
+                }
+            ]);
         }
     ])
     ->where('cust_id', $customerId)
