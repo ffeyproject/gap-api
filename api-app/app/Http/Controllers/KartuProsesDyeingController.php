@@ -97,53 +97,53 @@ class KartuProsesDyeingController extends Controller
 
         $token = str_replace('Bearer ', '', $token);
         $user = User::where('verification_token', $token)->first();
-        if (!$user) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid or expired token'
-            ], 401);
-        }
-
-        $noWo = $request->query('no');
-        if (!$noWo) {
-            return response()->json([]);
-        }
-
-        $woData = Wo::with([
-            'woColor' => function ($query) {
-                $query->select('id', 'wo_id', 'mo_color_id')->with([
-                    'moColor' => function ($query) {
-                        $query->select('id', 'mo_id', 'color');
-                    }
-                ]);
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid or expired token'
+                ], 401);
             }
-        ])
+
+            $noWo = $request->query('no');
+            if (!$noWo) {
+                return response()->json([]);
+            }
+
+            $woData = Wo::with([
+                'woColor' => function ($query) {
+                    $query->select('id', 'wo_id', 'mo_color_id')->with([
+                        'moColor' => function ($query) {
+                            $query->select('id', 'mo_id', 'color');
+                        }
+                    ]);
+                }
+            ])
             ->whereHas('mo', function ($query) {
-                $query->where('process', 1);
+                $query->whereIn('process', [1, 2]);
             })
-            ->where('jenis_order', 1)
+            ->whereIn('jenis_order', [1, 2, 3])
             ->where('status', 5)
             ->where('no', 'like', '%' . $noWo . '%')
             ->limit(100)
             ->orderBy('id', 'desc')
             ->get();
 
-        $result = $woData->map(function ($wo) {
-            return [
-                'id' => $wo->id,
-                'no' => $wo->no,
-                'mo_id' => $wo->mo_id,
-                'sc_id' => $wo->sc_id,
-                'sc_greige_id' => $wo->sc_greige_id,
-                'wo_color_id' => $wo->woColor->pluck('id'),
-                'mo_colors' => $wo->woColor->map(function ($woColor) {
-                    return [
-                        'wo_color_id' => $woColor->id,
-                        'mo_color_id' => $woColor->mo_color_id,
-                        'color' => $woColor->moColor->color ?? null,
-                    ];
-                }),
-            ];
+            $result = $woData->map(function ($wo) {
+                return [
+                    'id' => $wo->id,
+                    'no' => $wo->no,
+                    'mo_id' => $wo->mo_id,
+                    'sc_id' => $wo->sc_id,
+                    'sc_greige_id' => $wo->sc_greige_id,
+                    'wo_color_id' => $wo->woColor->pluck('id'),
+                    'mo_colors' => $wo->woColor->map(function ($woColor) {
+                        return [
+                            'wo_color_id' => $woColor->id,
+                            'mo_color_id' => $woColor->mo_color_id,
+                            'color' => $woColor->moColor->color ?? null,
+                        ];
+                    }),
+                ];
         });
 
         return response()->json($result);
