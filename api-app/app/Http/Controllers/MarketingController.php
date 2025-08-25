@@ -130,7 +130,7 @@ class MarketingController extends Controller
 //     ]);
 // }
 
- private const A           = 1;
+     private const A           = 1;
     private const B           = 2;
     private const C           = 3;
     private const PK          = 4;
@@ -229,6 +229,7 @@ public function outstanding(Request $request)
             'sc_date' => $sc->date,
             'mo_list' => $sc->mo ? $sc->mo->map(function ($mo) use ($qtySumByKartu) {
                 return [
+                    'mo_id'   => $mo->id,
                     'mo_no'   => $mo->no,
                     'mo_date' => $mo->date,
                     'mo_po'   => $mo->no_po,
@@ -272,9 +273,12 @@ public function outstanding(Request $request)
                                             'berat' => $kp->berat,
                                             'lebar' => $kp->lebar,
                                             'approved' => $kp->approved_at,
-                                            'qty_sum_terima' => collect($qtyGrades)->map(function($v, $k) use ($gradeLabels) {
-                                                return $gradeLabels[$k] . ': ' . $v;
-                                            })->implode(', '),
+                                            // 'qty_sum_terima' => collect($qtyGrades)->map(function($v, $k) use ($gradeLabels) {
+                                            //     return $gradeLabels[$k] . ': ' . $v;
+                                            // })->implode(', '),
+                                            'qty_sum_terima' => collect($qtyGrades)->mapWithKeys(function($v, $k) use ($gradeLabels) {
+                                                return [$gradeLabels[$k] => $v];
+                                            }),
                                             'unit' => $unitName,
 
                                             'items' => $kp->kartuProsesDyeingItem->map(function ($item) {
