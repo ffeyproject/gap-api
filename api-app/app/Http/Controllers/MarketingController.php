@@ -149,6 +149,7 @@ public function outstanding(Request $request)
         'end_date'    => 'required|date',
         'po_no'       => 'nullable|string',
         'no_wo'       => 'nullable|string',
+        'wo_greige'   => 'nullable|string',
     ]);
 
     if ($validator->fails()) {
@@ -165,6 +166,7 @@ public function outstanding(Request $request)
     $endDate    = $validated['end_date'];
     $poNo       = $validated['po_no'] ?? null;
     $noWo       = $validated['no_wo'] ?? null;
+    $woGreige = $validated['wo_greige'] ?? null;
 
     $qtySumByKartu = \DB::table('trn_inspecting as i')
     ->join('inspecting_item as ii', 'ii.inspecting_id', '=', 'i.id')
@@ -193,7 +195,7 @@ public function outstanding(Request $request)
 
     // Ambil data SC dengan relasi MO, WO, proses
     $scs = Sc::with([
-        'mo' => function ($query) use ($poNo, $noWo) {
+        'mo' => function ($query) use ($poNo, $noWo, $woGreige) {
             $query->where('status', 3)
                 ->where('process', 1)
                 ->when($poNo, function ($q) use ($poNo) {
@@ -205,12 +207,18 @@ public function outstanding(Request $request)
                 //     'wo.woColor.kartuProsesDyeings.kartuProsesDyeingProcesses.processDyeing',
                 // ]);
                 ->with([
-                'wo' => function ($woQuery) use ($noWo) {
+                'wo' => function ($woQuery) use ($noWo, $woGreige ) {
                     $woQuery->when($noWo, function ($wq) use ($noWo) {
                         $wq->whereNotNull('no')
                            ->where('no', 'like', "%{$noWo}%");
                     })
+                    ->when($woGreige, function ($wq) use ($woGreige) {
+                            $wq->whereHas('greige', function ($gq) use ($woGreige) {
+                                $gq->where('nama_kain', 'like', "%{$woGreige}%");
+                            });
+                        })
                     ->with([
+                        'greige',
                         'woColor.kartuProsesDyeings.kartuProsesDyeingItem',
                         'woColor.kartuProsesDyeings.kartuProsesDyeingProcesses.processDyeing',
                     ]);
