@@ -32,6 +32,7 @@ Route::prefix('v1')->group(function () {
 
     Route::group(['prefix' => 'dashboard', 'middleware' => 'api'], function () {
         Route::get('index', 'DashboardController@index');
+        Route::get('profile', 'DashboardController@profile');
         Route::get('grafik', 'DashboardController@grafik');
         Route::get('get-kartu-dyeing', 'DashboardController@kartuDyeing');
         Route::get('get-kartu-printing', 'DashboardController@kartuPrinting');

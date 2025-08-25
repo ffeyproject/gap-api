@@ -109,6 +109,16 @@ class DashboardController extends Controller
         }
     }
 
+    public function profile()
+    {
+        $token = request()->header('Authorization');
+        $token = str_replace('Bearer ', '', $token);
+
+        $users = User::where('verification_token', $token)->first();
+
+        return response()->json($users);
+    }
+
     public function grafik()
     {
         try {
