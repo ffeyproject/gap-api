@@ -214,7 +214,7 @@ public function outstanding(Request $request)
                     })
                     ->when($woGreige, function ($wq) use ($woGreige) {
                             $wq->whereHas('greige', function ($gq) use ($woGreige) {
-                                $gq->where('nama_kain', 'like', "%{$woGreige}%");
+                               $gq->whereRaw('LOWER(nama_kain) LIKE ?', ['%' . strtolower($woGreige) . '%']);
                             });
                         })
                     ->with([
