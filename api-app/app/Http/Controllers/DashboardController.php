@@ -91,6 +91,31 @@ class DashboardController extends Controller
                 ->limit(5)
                 ->get();
 
+            $lastInspectingMklbj = InspectingMklbj::with(['wo','woColor.moColor'])
+                    ->where('created_by', $users->id)
+                    ->orderBy('created_at', 'desc')
+                    ->limit(10)
+                    ->get();
+
+        $lastInspecting = Inspecting::with([
+                'sc',
+                'scGreige',
+                'mo',
+                'wo',
+                'kartuProcessDyeing',
+                'kartuProcessPrinting',
+                'createdBy',
+                'updatedBy',
+                'approvedBy',
+                'deliveredBy',
+                'k3l',
+                'inspectingItem.defect_item'
+            ])
+            ->where('created_by', $users->id)
+            ->orderBy('created_at', 'desc')
+            ->limit(10)
+            ->get();
+
             return response()->json([
                 'users' => $users,
                 'kartu_proses_dyeing' => $kartuProsesDyeing,
@@ -100,7 +125,9 @@ class DashboardController extends Controller
                 'count_my_inspecting' => $countMyInspecting,
                 'recent_kartu_proses_dyeing' => $recentKartuProsesDyeing,
                 'inspectings_per_year' => $inspectingsPerYear,
-                'my_inspecting' => $myInspecting
+                'my_inspecting' => $myInspecting,
+                'last_inspecting_mklbj' => $lastInspectingMklbj,
+                'last_inspecting' => $lastInspecting
             ]);
         } catch (\Exception $e) {
             return response()->json([
