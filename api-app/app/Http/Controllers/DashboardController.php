@@ -94,7 +94,7 @@ class DashboardController extends Controller
             $lastInspectingMklbj = InspectingMklbj::with(['wo','woColor.moColor'])
                     ->where('created_by', $users->id)
                     ->orderBy('created_at', 'desc')
-                    ->limit(10)
+                    ->limit(5)
                     ->get();
 
         $lastInspecting = Inspecting::with([

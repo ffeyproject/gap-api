@@ -925,7 +925,7 @@ class InspectingController extends Controller
     }
 
 
-    public function updateInspectingMklbjItem(Request $request, $id)
+  public function updateInspectingMklbjItem(Request $request, $id)
     {
         try {
             // Validasi data input
@@ -953,7 +953,7 @@ class InspectingController extends Controller
 
             $validatedData = $validator->validated();
 
-            // Cari data utama InspectingMklbjItem berdasarkan ID dari URL
+            // Cari data InspectingMklbjItem
             $inspectingItem = InspectingMklbjItem::find($id);
             if (!$inspectingItem) {
                 return response()->json([
@@ -962,36 +962,47 @@ class InspectingController extends Controller
                 ], 404);
             }
 
-            // Update data InspectingMklbjItem
+            // Update InspectingMklbjItem
             $inspectingItem->update([
-                'qty' => $validatedData['qty'],
-                'grade' => $validatedData['grade'] ?? null,
+                'qty'        => $validatedData['qty'],
+                'grade'      => $validatedData['grade'] ?? null,
                 'join_piece' => $validatedData['join_piece'] ?? '',
-                'lot_no' => $validatedData['lot_no'] ?? '',
-                'gsm_item' => $validatedData['gsm_item'] ?? null,
-                'qty_bit' => $validatedData['qty_bit'] ?? null,
+                'lot_no'     => $validatedData['lot_no'] ?? '',
+                'gsm_item'   => $validatedData['gsm_item'] ?? null,
+                'qty_bit'    => $validatedData['qty_bit'] ?? null,
             ]);
 
-            foreach ($validatedData['defect'] as $defect) {
-                // Prepare the data for updating or creating a defect record
-                $defectData = [
-                    'mst_kode_defect_id' => $defect['mst_kode_defect_id'],
-                    'meterage' => $defect['meterage'] ?? null,
-                    'point' => $defect['point'] ?? null,
-                    'inspecting_mklbj_item_id' => $inspectingItem->id,
-                ];
+            // 🔑 Sinkronisasi defect
+            $defectIds = [];
 
-                // If there's an ID for the defect, update the existing record
-                if (!empty($defect['id'])) {
-                    $defectData['id'] = $defect['id']; // Include the id to update the record
-                    DefectInspectingItem::where('id', $defect['id'])->update($defectData); // Update existing defect record
-                } else {
-                    // Otherwise, create a new defect record
-                    DefectInspectingItem::create($defectData); // Create new defect record
+            if (!empty($validatedData['defect'])) {
+                foreach ($validatedData['defect'] as $defect) {
+                    $defectData = [
+                        'mst_kode_defect_id'        => $defect['mst_kode_defect_id'],
+                        'meterage'                  => $defect['meterage'] ?? null,
+                        'point'                     => $defect['point'] ?? null,
+                        'inspecting_mklbj_item_id'  => $inspectingItem->id,
+                    ];
+
+                    if (!empty($defect['id'])) {
+                        DefectInspectingItem::where('id', $defect['id'])->update($defectData);
+                        $defectIds[] = $defect['id'];
+                    } else {
+                        $newDefect = DefectInspectingItem::create($defectData);
+                        $defectIds[] = $newDefect->id;
+                    }
                 }
+
+                // Hapus defect lama yang tidak ada di request
+                DefectInspectingItem::where('inspecting_mklbj_item_id', $inspectingItem->id)
+                    ->whereNotIn('id', $defectIds)
+                    ->delete();
+            } else {
+                // Kalau request tidak bawa defect sama sekali
+                DefectInspectingItem::where('inspecting_mklbj_item_id', $inspectingItem->id)->delete();
             }
 
-            // Tambahan: Proses berdasarkan skrip baru
+            // Hitung ulang join_piece dll (sesuai skrip lama Anda)
             $items = InspectingMklbjItem::where('inspecting_id', $inspectingItem->inspecting_id)->get();
             foreach ($items as $item) {
                 $qtySum = InspectingMklbjItem::where('join_piece', $item->join_piece)
@@ -1006,14 +1017,19 @@ class InspectingController extends Controller
                     ->orderByDesc('is_head')
                     ->orderBy('id')
                     ->first();
-                $item->qty_sum = ($isHead && $isHead->id != $item->id) ? null : ($item->join_piece == null || $item->join_piece == "" ? $item->qty : $qtySum);
+
+                $item->qty_sum = ($isHead && $isHead->id != $item->id)
+                    ? null
+                    : ($item->join_piece == null || $item->join_piece == "" ? $item->qty : $qtySum);
+
                 $item->qr_code = 'MKL-' . $item->inspecting_id . '-' . $item->id;
                 $item->is_head = ($isHead && $isHead->id != $item->id) ? 0 : 1;
-                $item->qty_count = ($isHead && $isHead->id != $item->id) ? 0 : ($item->join_piece == null || $item->join_piece == "" ? 1 : $qtyCount);
+                $item->qty_count = ($isHead && $isHead->id != $item->id)
+                    ? 0
+                    : ($item->join_piece == null || $item->join_piece == "" ? 1 : $qtyCount);
+
                 $item->save();
             }
-
-
 
             return response()->json([
                 'success' => true,
@@ -1029,6 +1045,7 @@ class InspectingController extends Controller
             ], 500);
         }
     }
+
 
 
     public function destroy($id)
