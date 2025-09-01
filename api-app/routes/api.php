@@ -58,6 +58,7 @@ Route::prefix('v1')->group(function () {
     Route::group(['prefix' => 'wo', 'middleware' => 'api'], function () {
         Route::get('get-wo', 'KartuProsesDyeingController@getWo');
         Route::get('search-wo', 'KartuProsesDyeingController@searchGetWo');
+        Route::put('ganti-wo/{id}', 'DashboardController@updateKartuProsesDyeing');
     });
 
     // Kartu Proses Dyeing Routes (Authenticated)

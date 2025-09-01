@@ -1165,5 +1165,83 @@ public function store(Request $request)
         }
     }
 
+    public function updateKartuProsesDyeing(Request $request, $id)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'wo_id'          => 'required|integer',
+                'mo_id'          => 'required|integer',
+                'sc_id'          => 'required|integer',
+                'sc_greige_id'   => 'required|integer',
+                'wo_color_id'    => 'required|integer',
+                'kartu_proses_id'=> 'required|integer',
+                
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validasi gagal',
+                    'errors'  => $validator->errors()
+                ], 422);
+            }
+
+            $validated = $validator->validated();
+
+            $kartuProses = KartuProsesDyeing::find($id);
+            if (!$kartuProses) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Data Kartu Proses tidak ditemukan'
+                ], 404);
+            }
+
+            $kartuProses->update([
+                'wo_id'           => $validated['wo_id'],
+                'mo_id'           => $validated['mo_id'],
+                'sc_id'           => $validated['sc_id'],
+                'sc_greige_id'    => $validated['sc_greige_id'],
+                'wo_color_id'     => $validated['wo_color_id'],
+                'kartu_proses_id' => $validated['kartu_proses_id'],
+            ]);
+
+            if ($request->has('items') && is_array($request->items)) {
+                foreach ($request->items as $item) {
+                    KartuProsesDyeingItem::updateOrCreate(
+                        [
+                            'id' => $item['id'] ?? null,
+                        ],
+                        [
+                            'kartu_process_id' => $kartuProses->id,
+                            'wo_id'     => $item['wo_id'] ?? $validated['wo_id'],
+                            'mo_id'     => $item['mo_id'] ?? $validated['mo_id'],
+                            'sc_id'     => $item['sc_id'] ?? $validated['sc_id'],
+                            'sc_greige_id' => $item['sc_greige_id'] ?? $validated['sc_greige_id'],
+                            'stock_id'  => $item['stock_id'] ?? null,
+                            'panjang_m' => $item['panjang_m'] ?? 0,
+                            'mesin'     => $item['mesin'] ?? null,
+                            'tube'      => $item['tube'] ?? null,
+                            'note'      => $item['note'] ?? null,
+                        ]
+                    );
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Data Kartu Proses berhasil diperbarui',
+                'data'    => $kartuProses->load('kartuProsesDyeingItem')
+            ]);
+        } catch (\Exception $e) {
+            \Log::error("Error updateKartuProsesDyeing: ".$e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan',
+                'error'   => $e->getMessage()
+            ], 500);
+        }
+    }
+
+
 
 }
