@@ -698,6 +698,7 @@ class InspectingController extends Controller
             'mo_id' => 'nullable',
             'sc_greige_id' => 'nullable',
             'sc_id' => 'nullable',
+            'note' => 'nullable',
             'inspection_table' => 'nullable',
             'kartu_proses_dyeing_id' => 'nullable|integer',
             'kartu_proses_printing_id' => 'nullable|integer',
@@ -749,6 +750,7 @@ class InspectingController extends Controller
         $inspecting->mo_id = $request->mo_id;
         $inspecting->sc_greige_id = $request->sc_greige_id;
         $inspecting->sc_id = $request->sc_id;
+        $inspecting->note = $request->note;
         $inspecting->inspection_table = $request->inspection_table;
         $inspecting->save();
 
@@ -833,6 +835,7 @@ class InspectingController extends Controller
                 'unit' => 'required|max:255',
                 'jenis_inspek' => 'nullable',
                 'no_memo' => 'nullable',
+                'note' => 'nullable',
                 'inspection_table' => 'nullable',
                 'jenis_makloon' => 'required|max:255',
                 'inspect_result' => 'nullable|array',
@@ -866,6 +869,7 @@ class InspectingController extends Controller
                 'satuan' => $validatedData['unit'],
                 'jenis_inspek' => $validatedData['jenis_inspek'],
                 'no_memo' => $validatedData['no_memo'],
+                'note' => $validatedData['note'] ?? null,
                 'jenis' => $validatedData['jenis_makloon'],
                 'tgl_inspeksi' => \Carbon\Carbon::now()->format('Y-m-d'),
                 'tgl_kirim' => \Carbon\Carbon::now()->format('Y-m-d'),

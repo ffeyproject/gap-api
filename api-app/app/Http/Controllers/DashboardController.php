@@ -292,6 +292,7 @@ public function store(Request $request)
             'unit' => 'required|string|max:255',
             'jenis_inspek' => 'required',
             'no_memo' => 'nullable',
+            'note' => 'nullable',
             'inspection_table' => 'nullable',
             'inspect_result' => 'required|array',
         ]);
@@ -336,8 +337,8 @@ public function store(Request $request)
             'date' => \Carbon\Carbon::now()->format('Y-m-d'),
             'tanggal_inspeksi' => \Carbon\Carbon::now()->format('Y-m-d'),
             'no_lot' => $validatedData['no_lot'],
+            'note' => $validatedData['note'] ?? null,
             'kombinasi' => $kartuProsesDyeing->woColor->moColor->color ?? '-',
-            'note' => '',
             'status' => 1,
             'unit' => $validatedData['unit'],
             'jenis_inspek' => $validatedData['jenis_inspek'],
@@ -442,6 +443,7 @@ public function store(Request $request)
                 'unit' => 'required|string|max:255',
                 'jenis_inspek' => 'required',
                 'no_memo' => 'nullable',
+                'note' => 'nullable',
                 'inspection_table' => 'nullable',
                 'jenis_makloon' => 'required|string|max:255',
                 'inspect_result' => 'required|array',
@@ -470,6 +472,7 @@ public function store(Request $request)
                 'jenis' => $validatedData['jenis_makloon'],
                 'jenis_inspek' => $validatedData['jenis_inspek'],
                 'no_memo' => $validatedData['no_memo'] ?? '-',
+                'note' => $validatedData['note'] ?? null,
                 'tgl_inspeksi' => \Carbon\Carbon::now()->format('Y-m-d'),
                 'tgl_kirim' => \Carbon\Carbon::now()->format('Y-m-d'),
                 'status' => 1,
@@ -1175,7 +1178,7 @@ public function store(Request $request)
                 'sc_greige_id'   => 'required|integer',
                 'wo_color_id'    => 'required|integer',
                 'kartu_proses_id'=> 'required|integer',
-                
+
             ]);
 
             if ($validator->fails()) {

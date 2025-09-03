@@ -37,6 +37,7 @@ class InspectingMklbj extends Model
         'inspection_table',
         'jenis_inspek',
         'no_memo',
+        'note',
     ];
 
     public function wo()
