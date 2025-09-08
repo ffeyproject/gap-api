@@ -9,126 +9,6 @@ use App\Sc;
 class MarketingController extends Controller
 {
 
-// public function outstanding(Request $request)
-// {
-//     // Ambil query string dan validasi
-//     $query = $request->query();
-
-//     $validator = Validator::make($query, [
-//         'customer_id' => 'required|numeric',
-//         'start_date'  => 'required|date',
-//         'end_date'    => 'required|date',
-//     ]);
-
-//     if ($validator->fails()) {
-//         return response()->json([
-//             'status'  => 'error',
-//             'message' => 'Validation failed',
-//             'errors'  => $validator->errors(),
-//         ], 422);
-//     }
-
-//     $validated   = $validator->validated();
-//     $customerId  = $validated['customer_id'];
-//     $startDate   = $validated['start_date'];
-//     $endDate     = $validated['end_date'];
-
-
-//      // Query agregasi sum qty per kartu_process_dyeing_id untuk inspecting status=4 (diterima gudang)
-//     $qtySumByKartu = \DB::table('trn_inspecting as i')
-//         ->join('trn_inspecting_item as ii', 'ii.inspecting_id', '=', 'i.id')
-//         ->select('i.kartu_process_dyeing_id', \DB::raw('SUM(ii.qty) as qty_sum'))
-//         ->where('i.status', 4)
-//         ->groupBy('i.kartu_process_dyeing_id')
-//         ->get()
-//         ->keyBy('kartu_process_dyeing_id')
-//        ->map(function ($row) {
-//             return $row->qty_sum;
-//         });
-
-//     // Ambil data SC dengan relasi MO, WO, dan proses
-//     $scs = Sc::with([
-//         'mo' => function ($query) {
-//             $query->where('status', 3)
-//                 ->where('process', 1)
-//                 ->with([
-//                     'wo.woColor.kartuProsesDyeings.kartuProsesDyeingItem',
-//                     'wo.woColor.kartuProsesDyeings.kartuProsesDyeingProcesses.processDyeing',
-//                     'wo.woColor.kartuProsesDyeings.inspectings',
-//                 ]);
-//         }
-//     ])
-//     ->where('cust_id', $customerId)
-//     ->whereBetween('date', [$startDate, $endDate])
-//     ->get();
-
-//     // Format hasil group per SC
-//     $formatted = $scs->map(function ($sc) {
-//         return [
-//             'sc_no'   => $sc->no,
-//             'sc_date' => $sc->date,
-//             'mo_list' => $sc->mo ? $sc->mo->map(function ($mo) {
-//                 return [
-//                     'mo_no'   => $mo->no,
-//                     'mo_date' => $mo->date,
-//                     'mo_po'   => $mo->no_po,
-//                     'wo_list' => $mo->wo ? $mo->wo->map(function ($wo) {
-//                         return [
-//                             'wo_no'     => $wo->no,
-//                             'wo_date'   => $wo->date,
-//                             'wo_greige' => optional($wo->greige)->nama_kain,
-//                             'wo_colors' => $wo->woColor->map(function ($woColor) {
-//                                 return [
-//                                     'qty'   => $woColor->qty,
-//                                     'color' => optional($woColor->moColor)->color,
-//                                     'kartu_proses' => $woColor->kartuProsesDyeings->map(function ($kp) {
-//                                         return [
-//                                             'no'             => $kp->nomor_kartu,
-//                                             'date'           => $kp->date,
-//                                             'berat'          => $kp->berat,
-//                                             'lebar'          => $kp->lebar,
-//                                             'approved'       => $kp->approved_at,
-//                                             'items'          => $kp->kartuProsesDyeingItem->map(function ($item) {
-//                                                 return [
-//                                                     'roll_no' => $item->roll_no,
-//                                                     'meter'   => $item->meter,
-//                                                 ];
-//                                             }),
-//                                            'panjang_greige' => $kp->kartuProsesDyeingItem->sum('panjang_m'),
-//                                            'processes' => $kp->kartuProsesDyeingProcesses
-//                                             ? $kp->kartuProsesDyeingProcesses
-//                                                 ->whereIn('process_id', [1, 3, 8, 15, 18, 19, 21, 23, 24])
-//                                                 ->map(function ($process) {
-//                                                     $decoded = json_decode($process->value, true);
-//                                                     $tanggal = $decoded['tanggal'] ?? null;
-
-//                                                     return [
-//                                                         'process_id'   => $process->process_id,
-//                                                         'process_name' => optional($process->processDyeing)->nama_proses,
-//                                                         'value'        => $tanggal,
-//                                                         'note'         => $process->note,
-//                                                     ];
-//                                                 })
-//                                                 ->values()
-//                                             : [],
-//                                         ];
-//                                     }),
-//                                 ];
-//                             }),
-//                         ];
-//                     }) : [],
-//                 ];
-//             }) : [],
-//         ];
-//     });
-
-//     return response()->json([
-//         'status' => 'success',
-//         'data'   => [
-//             'grouped_outstanding_items' => $formatted,
-//         ],
-//     ]);
-// }
 
      private const A           = 1;
     private const B           = 2;
@@ -325,10 +205,40 @@ public function outstanding(Request $request)
         ];
     });
 
+    // ✅ Hitung total_by_grade dari hasil formatted
+    $totals = [
+        'A'   => 0,
+        'B'   => 0,
+        'C'   => 0,
+        'PK'  => 0,
+        'Sample' => 0,
+        'A+'  => 0,   // ✅ pakai label final
+        'A*'  => 0,   // ✅ pakai label final
+    ];
+
+    foreach ($formatted as $sc) {
+        foreach ($sc['mo_list'] as $mo) {
+            foreach ($mo['wo_list'] as $wo) {
+                foreach ($wo['wo_colors'] as $woColor) {
+                    foreach ($woColor['kartu_proses'] as $kp) {
+                        foreach ($kp['qty_sum_terima'] as $grade => $val) {
+                            $totals[$grade] += $val;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     return response()->json([
         'status' => 'success',
         'data'   => [
             'grouped_outstanding_items' => $formatted,
+            'total_by_grade' => $totals ?? [
+            'A' => 0, 'B' => 0, 'C' => 0,
+            'PK' => 0, 'Sample' => 0,
+            'A+' => 0, 'A*' => 0,
+        ],
         ],
     ]);
 }
