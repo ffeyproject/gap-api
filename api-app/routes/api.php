@@ -109,6 +109,7 @@ Route::prefix('v1')->group(function () {
 
     Route::group(['prefix' => 'marketing', 'middleware' => 'api'], function () {
         Route::get('outstanding', 'MarketingController@outstanding');
+        Route::get('outstanding-printing', 'MarketingController@outstandingPrinting');
     });
 
 

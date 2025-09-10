@@ -62,4 +62,9 @@ class WoColor extends Model
     {
         return $this->hasMany(KartuProsesDyeing::class, 'wo_color_id');
     }
+
+    public function kartuProsesPrintings(): HasMany
+    {
+        return $this->hasMany(KartuProsesPrinting::class, 'wo_color_id');
+    }
 }

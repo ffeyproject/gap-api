@@ -93,4 +93,9 @@ class KartuProsesPrinting extends Model
     {
         return $this->hasMany(KartuProsesPrintingItem::class, 'kartu_process_id', 'id');
     }
+
+    public function kartuProsesPrintingProcesses()
+    {
+        return $this->hasMany(KartuProcessPrintingProcess::class, 'kartu_process_id', 'id');
+    }
 }
