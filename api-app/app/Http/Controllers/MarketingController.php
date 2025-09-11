@@ -890,6 +890,81 @@ class MarketingController extends Controller
     }
 
 
+    public function followSc(Request $request)
+    {
+        // 1️⃣ Validasi input
+        $validator = Validator::make($request->all(), [
+            'customer_id' => 'required|numeric',
+            'start_date'  => 'required|date',
+            'end_date'    => 'required|date',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Validation failed',
+                'errors'  => $validator->errors(),
+            ], 422);
+        }
+
+        // 2️⃣ Ambil input
+        $validated  = $validator->validated();
+        $customerId = $validated['customer_id'];
+        $startDate  = $validated['start_date'];
+        $endDate    = $validated['end_date'];
+
+        // 3️⃣ Ambil data SC + relasi
+        $sc = Sc::select('id', 'no')
+                ->where('cust_id', $customerId)
+                ->where('status', 5) // SC status 5
+                ->whereBetween('date', [$startDate, $endDate])
+                ->where(function ($q) {
+                    //  ⬇️ tambahan kondisi MO status 3
+                    $q->doesntHave('mo', 'and', function ($query) {
+                        $query->where('status', 3); // exclude MO status 3
+                    })
+                    ->orDoesntHave('moColors')
+                    ->orWhereDoesntHave('moColors.woColor');
+                })
+                ->with([
+                    'scGreiges:id,sc_id,greige_group_id,qty',
+                    'scGreiges.greigeGroup:id,nama_kain'
+                ])
+                ->get();
+
+        // 4️⃣ Group data berdasarkan no_sc
+        $grouped = [];
+        foreach ($sc as $item) {
+            foreach ($item->scGreiges as $greige) {
+                $no_sc = $item->no;
+
+                if (!isset($grouped[$no_sc])) {
+                    $grouped[$no_sc] = [
+                        'no_sc' => $no_sc,
+                        'nama_greige' => [],
+                    ];
+                }
+
+                $grouped[$no_sc]['nama_greige'][] = [
+                    'nama_kain' => $greige->greigeGroup->nama_kain ?? null,
+                    'qty' => number_format((float)$greige->qty, 2, ',', ''),
+                ];
+            }
+        }
+
+        // ubah associative array jadi indexed array
+        $data = array_values($grouped);
+
+        // 5️⃣ Return JSON
+        return response()->json([
+            'status' => 'success',
+            'data'   => $data,
+        ]);
+    }
+
+
+
+
 
 
 

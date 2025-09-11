@@ -97,4 +97,15 @@ class Sc extends Model
     {
         return $this->hasMany(Mo::class, 'sc_id');
     }
+
+    public function moColors()
+    {
+        return $this->hasMany(MoColor::class, 'sc_id');
+    }
+
+    public function scGreiges()
+    {
+        return $this->hasMany(ScGreige::class, 'sc_id');
+    }
+
 }
