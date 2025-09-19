@@ -367,7 +367,8 @@ public function store(Request $request)
                     'note' => null,
                     'qty_sum' => null,
                     'is_head' => 0,
-                    'qr_code' => 'INS-' . $inspecting->id . '-' . (InspectingItem::latest('id')->first()->id + 1),
+                    // 'qr_code' => 'INS-' . $inspecting->id . '-' . (InspectingItem::latest('id')->first()->id + 1),
+                    'qr_code' => null,
                     'qty_count' =>  0,
                     'qr_code_desc' => null,
                     'qr_print_at' => null,
@@ -502,7 +503,8 @@ public function store(Request $request)
                     'join_piece' => $item['join_piece'] ?? null,
                     'qty' => $item['qty'] ?? 0,
                     'lot_no' => $item['lot_no'] ?? '',
-                    'qr_code' => 'INS-' . $inspectingMklbj->id . '-' . (InspectingMklbjItem::latest('id')->first()->id + 1),
+                    // 'qr_code' => 'INS-' . $inspectingMklbj->id . '-' . (InspectingMklbjItem::latest('id')->first()->id + 1),
+                    'qr_code' => null,
                     'gsm_item' => $item['gsm_item'] ?? null,
                     'no_urut' => $item['no_urut'] ?? null,
                     'qty_bit' => $item['qty_bit'] ?? null,
@@ -732,7 +734,8 @@ public function store(Request $request)
                 'note' => null,
                 'qty_sum' => null,
                 'is_head' => 0,
-                'qr_code' => 'INS-' . $inspecting->id . '-' . $newId,
+                // 'qr_code' => 'INS-' . $inspecting->id . '-' . $newId,
+                'qr_code' => null,
                 'qty_count' => 0,
                 'qr_code_desc' => null,
                 'qr_print_at' => null,
@@ -861,7 +864,8 @@ public function store(Request $request)
                 'note' => null,
                 'qty_sum' => null,
                 'is_head' => 0,
-                'qr_code' => 'INS-' . $inspecting->id . '-' . (InspectingItem::latest('id')->first()->id + 1),
+                // 'qr_code' => 'INS-' . $inspecting->id . '-' . (InspectingItem::latest('id')->first()->id + 1),
+                'qr_code' => null,
                 'qty_count' => 0,
                 'qr_code_desc' => null,
                 'qr_print_at' => null,
@@ -887,6 +891,7 @@ public function store(Request $request)
                     DefectInspectingItem::create($defectInspectingItem);
                 }
             }
+
 
             // Update the inspecting item data for qty_sum, qty_count, etc.
             $getItemBasedOnInspectingId = InspectingItem::where('inspecting_id', $inspecting->id)->get();
@@ -1009,7 +1014,8 @@ public function store(Request $request)
                         'note' => null,
                         'qty_sum' => null,
                         'is_head' => 0,
-                        'qr_code' => 'INS-' . $inspecting->id . '-' . (InspectingItem::latest('id')->first()->id + 1),
+                        // 'qr_code' => 'INS-' . $inspecting->id . '-' . (InspectingItem::latest('id')->first()->id + 1),
+                        'qr_code' => null,
                         'qty_count' =>  0,
                         'qr_code_desc' => null,
                         'qr_print_at' => null,
