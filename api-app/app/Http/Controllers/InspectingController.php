@@ -304,7 +304,8 @@ class InspectingController extends Controller
                     'note' => null,
                     // 'qty_sum' => null,
                     // 'is_head' => 0,
-                    'qr_code' => 'INS-' . $inspecting->id . '-' . (InspectingItem::latest('id')->first()->id + 1),
+                    // 'qr_code' => 'INS-' . $inspecting->id . '-' . (InspectingItem::latest('id')->first()->id + 1),
+                    'qr_code' => null,
                     // 'qty_count' => 0,
                     'qr_code_desc' => null,
                     'qr_print_at' => null,
@@ -889,7 +890,8 @@ class InspectingController extends Controller
                             'join_piece' => $item['join_piece'] ?? null,
                             'qty' => $item['qty'] ?? 0,
                             'lot_no' => $item['lot_no'] ?? '',
-                            'qr_code' => 'INS-' . $inspectingMklbj->id . '-' . (InspectingMklbjItem::latest('id')->first()->id + 1),
+                            // 'qr_code' => 'INS-' . $inspectingMklbj->id . '-' . (InspectingMklbjItem::latest('id')->first()->id + 1),
+                            'qr_code' => null,
                             'gsm_item' => $item['gsm_item'] ?? null,
                         ]
                     );
