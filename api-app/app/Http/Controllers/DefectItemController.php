@@ -92,6 +92,79 @@ class DefectItemController extends Controller
 
 
 
+    // public function countByNoUrut(Request $request)
+    // {
+    //     $year = $request->query('tahun', now()->year);
+
+    //     $items = DefectInspectingItem::with([
+    //             'mstKodeDefect',
+    //             'inspectingItem.inspecting',
+    //             'inspectingMklbjItem.inspectingMklbj',
+    //         ])
+    //         ->whereYear('created_at', $year)
+    //         ->whereHas('mstKodeDefect', function ($q) {
+    //             $q->whereNotNull('no_urut');
+    //         })
+    //         ->where(function ($query) {
+    //             // Filter status 4 (Inspecting) atau 3 (InspectingMklbj)
+    //             $query->whereHas('inspectingItem.inspecting', function ($q) {
+    //                 $q->where('status', 4);
+    //             })->orWhereHas('inspectingMklbjItem.inspectingMklbj', function ($q) {
+    //                 $q->where('status', 3);
+    //             });
+    //         })
+    //         ->where(function ($query) {
+    //             $query->where(function ($q) {
+    //                 $q->whereHas('inspectingItem', function ($sub) {
+    //                     $sub->whereIn('grade', [2, 3]);
+    //                 })->orWhereDoesntHave('inspectingItem');
+    //             })->where(function ($q) {
+    //                 $q->whereHas('inspectingMklbjItem', function ($sub) {
+    //                     $sub->whereIn('grade', [2, 3]);
+    //                 })->orWhereDoesntHave('inspectingMklbjItem');
+    //             });
+    //         })
+    //         ->get();
+
+    //     // Inisialisasi nama bulan
+    //     $namaBulan = [
+    //         1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
+    //         5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus',
+    //         9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
+    //     ];
+
+    //     $data = [];
+
+    //     foreach ($items as $item) {
+    //         $bulan = optional($item->created_at)->format('n'); // bulan numerik (1–12)
+    //         if (!$bulan) continue;
+
+    //         $bulanNama = $namaBulan[(int) $bulan] ?? "Bulan-$bulan";
+    //         $no_urut = optional($item->mstKodeDefect)->no_urut;
+    //         $nama_defect = optional($item->mstKodeDefect)->nama_defect;
+
+    //         if ($no_urut === null) continue;
+
+    //         if (!isset($data[$bulanNama][$no_urut])) {
+    //             $data[$bulanNama][$no_urut] = [
+    //                 'nama_defect' => $nama_defect,
+    //                 'total' => 0,
+    //                 'total_meterage' => 0.0,
+    //             ];
+    //         }
+
+    //         $data[$bulanNama][$no_urut]['total'] += 1;
+    //         $data[$bulanNama][$no_urut]['total_meterage'] += (float) $item->meterage;
+    //     }
+
+    //     return response()->json([
+    //         'success' => true,
+    //         'year' => $year,
+    //         'data' => $data
+    //     ]);
+    // }
+
+
     public function countByNoUrut(Request $request)
     {
         $year = $request->query('tahun', now()->year);
@@ -101,32 +174,36 @@ class DefectItemController extends Controller
                 'inspectingItem.inspecting',
                 'inspectingMklbjItem.inspectingMklbj',
             ])
-            ->whereYear('created_at', $year)
             ->whereHas('mstKodeDefect', function ($q) {
                 $q->whereNotNull('no_urut');
             })
             ->where(function ($query) {
-                // Filter status 4 (Inspecting) atau 3 (InspectingMklbj)
+                // Status Inspecting = 4 atau InspectingMklbj = 3
                 $query->whereHas('inspectingItem.inspecting', function ($q) {
                     $q->where('status', 4);
                 })->orWhereHas('inspectingMklbjItem.inspectingMklbj', function ($q) {
                     $q->where('status', 3);
                 });
             })
+            ->where(function ($query) use ($year) {
+                // Filter berdasarkan tahun dari date (inspecting) atau tgl_kirim (inspectingMklbj)
+                $query->whereHas('inspectingItem.inspecting', function ($q) use ($year) {
+                    $q->whereYear('date', $year);
+                })->orWhereHas('inspectingMklbjItem.inspectingMklbj', function ($q) use ($year) {
+                    $q->whereYear('tgl_kirim', $year);
+                });
+            })
             ->where(function ($query) {
-                $query->where(function ($q) {
-                    $q->whereHas('inspectingItem', function ($sub) {
-                        $sub->whereIn('grade', [2, 3]);
-                    })->orWhereDoesntHave('inspectingItem');
-                })->where(function ($q) {
-                    $q->whereHas('inspectingMklbjItem', function ($sub) {
-                        $sub->whereIn('grade', [2, 3]);
-                    })->orWhereDoesntHave('inspectingMklbjItem');
+                // Grade harus 2 atau 3
+                $query->whereHas('inspectingItem', function ($q) {
+                    $q->whereIn('grade', [2, 3]);
+                })->orWhereHas('inspectingMklbjItem', function ($q) {
+                    $q->whereIn('grade', [2, 3]);
                 });
             })
             ->get();
 
-        // Inisialisasi nama bulan
+        // Nama bulan
         $namaBulan = [
             1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
             5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus',
@@ -136,7 +213,13 @@ class DefectItemController extends Controller
         $data = [];
 
         foreach ($items as $item) {
-            $bulan = optional($item->created_at)->format('n'); // bulan numerik (1–12)
+            // Ambil bulan dari date/tgl_kirim, bukan created_at
+            $bulan = optional(optional($item->inspectingItem)->inspecting)->date
+                ? \Carbon\Carbon::parse(optional($item->inspectingItem->inspecting)->date)->format('n')
+                : (optional(optional($item->inspectingMklbjItem)->inspectingMklbj)->tgl_kirim
+                    ? \Carbon\Carbon::parse(optional($item->inspectingMklbjItem->inspectingMklbj)->tgl_kirim)->format('n')
+                    : null);
+
             if (!$bulan) continue;
 
             $bulanNama = $namaBulan[(int) $bulan] ?? "Bulan-$bulan";
@@ -145,24 +228,38 @@ class DefectItemController extends Controller
 
             if ($no_urut === null) continue;
 
+            $grade = optional($item->inspectingItem)->grade ?? optional($item->inspectingMklbjItem)->grade;
+
             if (!isset($data[$bulanNama][$no_urut])) {
                 $data[$bulanNama][$no_urut] = [
-                    'nama_defect' => $nama_defect,
-                    'total' => 0,
+                    'nama_defect'    => $nama_defect,
+                    'total'          => 0,
+                    'total_grade_2'  => 0.0,
+                    'total_grade_3'  => 0.0,
                     'total_meterage' => 0.0,
                 ];
             }
 
             $data[$bulanNama][$no_urut]['total'] += 1;
-            $data[$bulanNama][$no_urut]['total_meterage'] += (float) $item->meterage;
+
+            if ($grade == 2) {
+                $data[$bulanNama][$no_urut]['total_grade_2'] += (float) $item->meterage;
+            } elseif ($grade == 3) {
+                $data[$bulanNama][$no_urut]['total_grade_3'] += (float) $item->meterage;
+            }
+
+            $data[$bulanNama][$no_urut]['total_meterage'] =
+                $data[$bulanNama][$no_urut]['total_grade_2'] +
+                $data[$bulanNama][$no_urut]['total_grade_3'];
         }
 
         return response()->json([
             'success' => true,
-            'year' => $year,
-            'data' => $data
+            'year'    => $year,
+            'data'    => $data
         ]);
     }
+
 
 
 
@@ -277,10 +374,6 @@ class DefectItemController extends Controller
             'end_date' => 'date'
         ]);
 
-        // Log::info('Full request body:', $request->all());
-        // Log::info('Query string:', $request->query());
-        // Log::info('start_date via input(): ' . $request->input('start_date'));
-        // Log::info('start_date via query(): ' . $request->query('start_date'));
 
         $startDate = $request->input('start_date');
             $endDate = $request->input('end_date');
