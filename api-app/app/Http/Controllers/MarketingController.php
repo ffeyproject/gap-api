@@ -963,8 +963,188 @@ class MarketingController extends Controller
     }
 
 
+    public function kirimBuyer(Request $request)
+    {
+        $query = $request->query();
 
+        // === 1️⃣ Validasi ===
+        $validator = Validator::make($query, [
+            'customer_id' => 'nullable|numeric',
+            'start_date'  => 'nullable|date',
+            'end_date'    => 'nullable|date',
+            'po_no'       => 'nullable|string',
+            'no_wo'       => 'nullable|string',
+            'wo_greige'   => 'nullable|string',
+            'sc_no'       => 'nullable|string',
+        ]);
 
+        if ($validator->fails()) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Validation failed',
+                'errors'  => $validator->errors(),
+            ], 422);
+        }
+
+        // === 2️⃣ Ambil parameter ===
+        $v = $validator->validated();
+        $customerId = $v['customer_id'] ?? null;
+        $startDate  = $v['start_date']  ?? null;
+        $endDate    = $v['end_date']    ?? null;
+        $poNo       = $v['po_no']       ?? null;
+        $noWo       = $v['no_wo']       ?? null;
+        $woGreige   = $v['wo_greige']   ?? null;
+        $scNo       = $v['sc_no']       ?? null;
+
+        // === 3️⃣ Ambil SC beserta relasi ===
+        $scs = Sc::with([
+            'scGreiges.greigeGroup',
+            'mo' => function ($query) use ($poNo, $noWo, $woGreige) {
+                $query->where('status', 3)
+                    ->whereIn('process', [1, 2])
+                    ->when($poNo, function ($q) use ($poNo) {
+                        $q->where('no_po', 'like', '%'.$poNo.'%');
+                    })
+                    ->with([
+                        'wo' => function ($woQuery) use ($noWo, $woGreige) {
+                            $woQuery
+                                ->when($noWo, function ($q) use ($noWo) {
+                                    $q->where('no', 'like', '%'.$noWo.'%');
+                                })
+                                ->when($woGreige, function ($q) use ($woGreige) {
+                                    $q->whereHas('greige', function ($g) use ($woGreige) {
+                                        $g->whereRaw('LOWER(nama_kain) LIKE ?', ['%'.strtolower($woGreige).'%']);
+                                    });
+                                })
+                                ->with(['greige', 'woColor.moColor']);
+                        }
+                    ]);
+            }
+        ])
+        ->when($customerId, function ($q) use ($customerId) {
+            $q->where('cust_id', $customerId);
+        })
+        ->when($scNo, function ($q) use ($scNo) {
+            $q->where('no', 'like', '%'.$scNo.'%');
+        })
+        ->when($startDate && $endDate, function ($q) use ($startDate, $endDate) {
+            $q->whereBetween('date', [$startDate, $endDate]);
+        })
+        ->get();
+
+        // === 4️⃣ Gudang Jadi Summary ===
+        $gradeLabels = [
+            1=>'A',2=>'B',3=>'C',4=>'PK',5=>'Sample',6=>'A+',7=>'A*',
+            'A'=>'A','B'=>'B','C'=>'C','PK'=>'PK','Sample'=>'Sample',
+            'A_PLUS'=>'A+','A_ASTERISK'=>'A*'
+        ];
+
+        $gudang = \DB::table('trn_gudang_jadi')
+            ->selectRaw('wo_id, TRIM(UPPER(color)) as color, grade, SUM(qty) as total_qty')
+            ->where('status', 1)
+            ->groupBy('wo_id', 'color', 'grade')
+            ->get();
+
+        $gudangSummary = $gudang->groupBy(function ($r) {
+            return $r->wo_id.'|'.$r->color;
+        })->map(function ($rows) use ($gradeLabels) {
+            $gradeKeys = ['A','A+','A*','B','C','PK','Sample'];
+            $tot = array_fill_keys($gradeKeys, 0.0);
+            foreach ($rows as $r) {
+                $label = $gradeLabels[$r->grade] ?? $r->grade;
+                $tot[$label] = ($tot[$label] ?? 0) + (float) $r->total_qty;
+            }
+            $tot['Total'] = array_sum($tot);
+            return $tot;
+        });
+
+        // === 5️⃣ Kirim Buyer Summary ===
+        $kirimRaw = \DB::table('trn_kirim_buyer_item as i')
+            ->join('trn_gudang_jadi as g', 'i.stock_id', '=', 'g.id')
+            ->join('trn_kirim_buyer as k', 'i.kirim_buyer_id', '=', 'k.id')
+            ->join('trn_kirim_buyer_header as h', 'k.header_id', '=', 'h.id')
+            ->selectRaw('g.wo_id, TRIM(UPPER(g.color)) as color, g.unit, h.date as tgl_kirim, SUM(i.qty) as qty_kirim')
+            ->whereNotNull('g.color')
+            ->groupBy('g.wo_id', 'g.color', 'g.unit', 'h.date')
+            ->get();
+
+        $unitLabels = [1 => 'Yard', 2 => 'Meter', 3 => 'Pcs', 4 => 'Kilogram'];
+
+        $kirimSummary = $kirimRaw->groupBy(function ($r) {
+            return $r->wo_id.'|'.$r->color;
+        })->map(function ($rows) use ($unitLabels) {
+            $first = $rows->first();
+            $unit  = $unitLabels[$first->unit] ?? '-';
+            return [
+                'unit' => $unit,
+                'tgl_kirim_list' => $rows->map(function ($r) {
+                    return [
+                        'tgl' => \Carbon\Carbon::parse($r->tgl_kirim)->format('d-m-Y'),
+                        'qty' => (float) $r->qty_kirim,
+                    ];
+                })->sortBy('tgl')->values(),
+                'total_kirim' => $rows->sum('qty_kirim'),
+            ];
+        });
+
+        // === 6️⃣ Gabungkan Data ===
+        $formatted = $scs->map(function ($sc) use ($gudangSummary, $kirimSummary) {
+            $totalQtySc = 0.0;
+
+            if ($sc->scGreiges && $sc->scGreiges->count()) {
+                foreach ($sc->scGreiges as $sg) {
+                    if (!$sg->greigeGroup) continue;
+                    $param = (int) $sg->price_param;
+                    if ($param === 1) {
+                        $totalQtySc += $sg->getQtyFinish();
+                    } elseif ($param === 2) {
+                        $totalQtySc += $sg->getQtyFinishToYard();
+                    } else {
+                        $totalQtySc += (float) $sg->qty;
+                    }
+                }
+            }
+
+            return [
+                'sc_no'        => $sc->no,
+                'sc_date'      => $sc->date,
+                'total_qty_sc' => round($totalQtySc, 2),
+                'mo_list'      => $sc->mo->map(function ($mo) use ($gudangSummary, $kirimSummary) {
+                    return [
+                        'mo_id'   => $mo->id,
+                        'mo_no'   => $mo->no,
+                        'mo_po'   => $mo->no_po,
+                        'process' => $mo->process,
+                        'wo_list' => $mo->wo->map(function ($wo) use ($gudangSummary, $kirimSummary) {
+                            return [
+                                'wo_no'     => $wo->no,
+                                'wo_date'   => $wo->date,
+                                'wo_greige' => optional($wo->greige)->nama_kain,
+                                'wo_colors' => collect($wo->woColor)->map(function ($wc) use ($wo, $gudangSummary, $kirimSummary) {
+                                    $color = strtoupper(trim(optional($wc->moColor)->color));
+                                    $key   = $wo->id.'|'.$color;
+                                    return [
+                                        'color'          => $color,
+                                        'qty'            => (float) $wc->qty,
+                                        'gudang_jadi'    => $gudangSummary[$key] ?? [],
+                                        'tgl_kirim_list' => $kirimSummary[$key]['tgl_kirim_list'] ?? [],
+                                        'total_kirim'    => $kirimSummary[$key]['total_kirim'] ?? 0,
+                                        'unit'           => $kirimSummary[$key]['unit'] ?? '-',
+                                    ];
+                                })->values(),
+                            ];
+                        })->values(),
+                    ];
+                })->values(),
+            ];
+        });
+
+        // === 7️⃣ Return JSON ===
+        return response()->json([
+            'status' => 'success',
+            'data'   => ['grouped_outstanding_items' => $formatted],
+        ]);
+    }
 
 
 
