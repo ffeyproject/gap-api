@@ -1207,4 +1207,22 @@ class InspectingController extends Controller
             ], 500);
         }
     }
+
+     public function destroyMklbj($id)
+    {
+        try {
+            $inspecting = InspectingMklbjItem::findOrFail($id);
+            $inspecting->delete();
+            return response()->json([
+                'success' => true,
+                'message' => 'Data Item deleted successfully'
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error deleting inspecting Mklbj: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error deleting data'
+            ], 500);
+        }
+    }
 }
