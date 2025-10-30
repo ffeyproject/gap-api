@@ -83,6 +83,8 @@ Route::prefix('v1')->group(function () {
         Route::put('update-inspecting-mklbj/item/{id}', 'InspectingController@updateInspectingMklbjItem');
         Route::delete('delete-inspecting-item/{id}', 'InspectingController@destroy');
         Route::delete('delete-inspecting-item-mklbj/{id}', 'InspectingController@destroyMklbj');
+        Route::delete('delete-all-defects/{id}', 'InspectingController@destroyAllDefectsByInspecting');
+        Route::delete('delete-all-defects-mklbj/{id}', 'InspectingController@destroyAllDefectsByInspectingMklbj');
     });
 
     // Inspecting Store & Update Routes (Authenticated)

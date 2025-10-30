@@ -1225,4 +1225,75 @@ class InspectingController extends Controller
             ], 500);
         }
     }
+
+
+    public function destroyAllDefectsByInspecting($inspectingId)
+    {
+        try {
+            // Ambil semua item berdasarkan Inspecting ID
+            $items = InspectingItem::where('inspecting_id', $inspectingId)->pluck('id');
+
+            if ($items->isEmpty()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Tidak ada Inspecting Item ditemukan untuk Inspecting ID ' . $inspectingId
+                ], 404);
+            }
+
+            // Hapus semua defect yang terkait dengan semua item
+            DefectInspectingItem::whereIn('inspecting_item_id', $items)->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Semua defect dari Inspecting ID ' . $inspectingId . ' berhasil dihapus'
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error deleting all defects by inspecting: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal menghapus defect',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function destroyAllDefectsByInspectingMklbj($inspectingMklbjId)
+    {
+        try {
+            // Pastikan data utama InspectingMklbj ada
+            $inspecting = InspectingMklbj::findOrFail($inspectingMklbjId);
+
+            // Ambil semua ID dari InspectingMklbjItem yang terkait
+            $itemIds = InspectingMklbjItem::where('inspecting_id', $inspecting->id)->pluck('id');
+
+            if ($itemIds->isEmpty()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Tidak ada item yang ditemukan untuk InspectingMklbj ID ' . $inspecting->id,
+                ], 404);
+            }
+
+            // Hapus semua defect yang terhubung ke item tersebut
+            DefectInspectingItem::whereIn('inspecting_mklbj_item_id', $itemIds)->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Semua defect dari InspectingMklbj ID ' . $inspecting->id . ' berhasil dihapus',
+            ]);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Data InspectingMklbj tidak ditemukan',
+            ], 404);
+        } catch (\Exception $e) {
+            \Log::error('Error deleting all defects by InspectingMklbj: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan saat menghapus semua defect',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+
 }
