@@ -174,67 +174,110 @@ class InspectingController extends Controller
 //     return response()->json(['message' => 'Data berhasil diperbarui'], 200);
 // }
 
-    public function kalkulasi(Request $request, $id)
+    public function kalkulasi(Request $request, $id = null)
     {
-        // Validasi request langsung dari array utama
         $request->validate([
             '*.nilai_poin' => 'required|numeric',
             '*.id' => 'required|array',
             '*.id.*.inspecting_item_id' => 'required|integer',
         ]);
 
-        // Loop melalui setiap item dalam array request
-        foreach ($request->all() as $item) {
-            foreach ($item['id'] as $inspectItem) {
-                $inspect = InspectingItem::where('id', $inspectItem['inspecting_item_id'])->first();
+        try {
+            DB::beginTransaction();
 
-                if ($inspect) {
-                    // Cek jika grade sebelumnya adalah 1, 2, 7, atau 8
-                    if (in_array($inspect->grade, [1, 2, 7, 8])) {
-                        // Menentukan nilai grade berdasarkan nilai_poin
-                        $inspect->grade = ($item['nilai_poin'] < 28) ? 1 : 2;
-                        $inspect->save();
-                    }
+            foreach ($request->all() as $group) {
+                $nilai = (float) $group['nilai_poin'];
+
+                // Tentukan grade berdasarkan nilai poin
+                if ($nilai < 25) {
+                    $grade = 1;
+                } elseif ($nilai <= 30) {
+                    $grade = 2;
+                } else {
+                    $grade = 3;
                 }
-            }
-        }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Data berhasil diperbarui'
-        ], 200);
+                // Ambil semua inspecting_item_id dari array
+                $ids = collect($group['id'])->pluck('inspecting_item_id')->toArray();
+
+                if (empty($ids)) {
+                    continue;
+                }
+
+                // Update hanya item yang memiliki grade awal tertentu
+                InspectingItem::whereIn('id', $ids)
+                    ->whereIn('grade', [1, 2, 7, 8])
+                    ->update(['grade' => $grade]);
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Data berhasil diperbarui.'
+            ], 200);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error kalkulasi: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan saat memperbarui data.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
 
     public function kalkulasiMklbj(Request $request, $id)
     {
-        // Validasi request langsung dari array utama
         $request->validate([
             '*.nilai_poin' => 'required|numeric',
             '*.id' => 'required|array',
             '*.id.*.inspecting_item_id' => 'required|integer',
         ]);
 
-        // Loop melalui setiap item dalam array request
-        foreach ($request->all() as $item) {
-            foreach ($item['id'] as $inspectItem) {
-                $inspect = InspectingMklbjItem::where('id', $inspectItem['inspecting_item_id'])->first();
+        try {
+            DB::beginTransaction();
 
-                if ($inspect) {
-                    // Cek jika grade sebelumnya adalah 1, 2, 7, atau 8
-                    if (in_array($inspect->grade, [1, 2, 7, 8])) {
-                        // Menentukan nilai grade berdasarkan nilai_poin
-                        $inspect->grade = ($item['nilai_poin'] < 28) ? 1 : 2;
-                        $inspect->save();
-                    }
+            foreach ($request->all() as $group) {
+                $nilai = (float) $group['nilai_poin'];
+
+                // Tentukan grade berdasarkan nilai_poin
+                // <28 = Grade 1, >=28 = Grade 2
+                $grade = ($nilai < 28) ? 1 : 2;
+
+                // Ambil semua id item dari array group
+                $ids = collect($group['id'])->pluck('inspecting_item_id')->toArray();
+
+                if (empty($ids)) {
+                    continue;
                 }
-            }
-        }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Data berhasil diperbarui'
-        ], 200);
+                // Update langsung semua item dalam satu query
+                InspectingMklbjItem::whereIn('id', $ids)
+                    ->whereIn('grade', [1, 2, 7, 8]) // hanya jika grade lama termasuk daftar ini
+                    ->update(['grade' => $grade]);
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Data berhasil diperbarui.'
+            ], 200);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error kalkulasiMklbj: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan saat memperbarui data.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
 
     public function show($id)
