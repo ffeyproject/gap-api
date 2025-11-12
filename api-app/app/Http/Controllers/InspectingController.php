@@ -193,8 +193,10 @@ class InspectingController extends Controller
                     $grade = 1;
                 } elseif ($nilai <= 30) {
                     $grade = 2;
-                } else {
-                    $grade = 3;
+                }elseif ($nilai <= 40) {
+                     $grade = 3;
+                }else {
+                    $grade = 10;
                 }
 
                 // Ambil semua inspecting_item_id dari array
@@ -244,9 +246,16 @@ class InspectingController extends Controller
             foreach ($request->all() as $group) {
                 $nilai = (float) $group['nilai_poin'];
 
-                // Tentukan grade berdasarkan nilai_poin
-                // <28 = Grade 1, >=28 = Grade 2
-                $grade = ($nilai < 28) ? 1 : 2;
+                // 🔽 Tentukan grade berdasarkan range nilai_poin
+                if ($nilai < 25) {
+                    $grade = 1; // Grade A
+                } elseif ($nilai <= 30) {
+                    $grade = 2; // Grade B
+                } elseif ($nilai <= 40) {
+                    $grade = 3; // Grade C
+                } else {
+                    $grade = 10; // Grade D
+                }
 
                 // Ambil semua id item dari array group
                 $ids = collect($group['id'])->pluck('inspecting_item_id')->toArray();
@@ -257,7 +266,7 @@ class InspectingController extends Controller
 
                 // Update langsung semua item dalam satu query
                 InspectingMklbjItem::whereIn('id', $ids)
-                    ->whereIn('grade', [1, 2, 7, 8]) // hanya jika grade lama termasuk daftar ini
+                    ->whereIn('grade', [1, 2, 3, 7, 8]) // opsional: hanya update grade tertentu
                     ->update(['grade' => $grade]);
             }
 
@@ -279,6 +288,7 @@ class InspectingController extends Controller
             ], 500);
         }
     }
+
 
     public function show($id)
     {
