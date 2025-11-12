@@ -189,14 +189,12 @@ class InspectingController extends Controller
                 $nilai = (float) $group['nilai_poin'];
 
                 // Tentukan grade berdasarkan nilai poin
-                if ($nilai < 25) {
+                if ($nilai <= 24) {
                     $grade = 1;
                 } elseif ($nilai <= 30) {
                     $grade = 2;
-                }elseif ($nilai <= 40) {
-                     $grade = 3;
                 }else {
-                    $grade = 10;
+                    $grade = 3;
                 }
 
                 // Ambil semua inspecting_item_id dari array
@@ -247,14 +245,12 @@ class InspectingController extends Controller
                 $nilai = (float) $group['nilai_poin'];
 
                 // 🔽 Tentukan grade berdasarkan range nilai_poin
-                if ($nilai < 25) {
+                if ($nilai <= 24) {
                     $grade = 1; // Grade A
                 } elseif ($nilai <= 30) {
                     $grade = 2; // Grade B
-                } elseif ($nilai <= 40) {
-                    $grade = 3; // Grade C
                 } else {
-                    $grade = 10; // Grade D
+                    $grade = 3; // Grade C
                 }
 
                 // Ambil semua id item dari array group
