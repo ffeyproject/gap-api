@@ -68,7 +68,7 @@ class VerpackingController extends Controller
             'kartuProcessPrinting.kartuProsesPrintingItem',
         ]);
 
-        $query->where('status', 4);
+        $query->whereIn('status', [3, 4]);
 
         if ($no_kirim) {
             $query->where('no', 'like', '%' . $no_kirim . '%');
@@ -243,7 +243,7 @@ class VerpackingController extends Controller
                 'inspectingMklbjItem',
         ]);
 
-        $query->where('status', 3);
+        $query->whereIn('status', [2, 3]);
 
         if ($no_kirim) {
             $query->where('no', 'like', '%' . $no_kirim . '%');
@@ -448,7 +448,7 @@ public function rekapPengirimanProduksi(Request $request)
         'kartuProcessDyeing.kartuProsesDyeingItem',
         'kartuProcessPrinting.kartuProsesPrintingItem',
         'inspectingItem'
-    ])->where('status', 4);
+    ])->whereIn('status', [3, 4]);
 
     if ($start_date && $end_date) {
         $query1->whereBetween('date', [$start_date, $end_date]);
@@ -490,7 +490,7 @@ public function rekapPengirimanProduksi(Request $request)
         'wo.mo',
         'woColor.moColor',
         'inspectingMklbjItem'
-    ])->where('status', 3);
+    ])->whereIn('status', [2, 3]);
 
     if ($start_date && $end_date) {
         $query2->whereBetween('tgl_kirim', [$start_date, $end_date]);
@@ -589,7 +589,7 @@ public function rekapPengirimanProduksi(Request $request)
             'kartuProcessPrinting.kartuProsesPrintingItem',
         ]);
 
-        $query->where('status', 4);
+        $query->whereIn('status', [3, 4]);
 
         if ($no_kirim) {
             $query->where('no', 'like', '%' . $no_kirim . '%');
@@ -758,7 +758,7 @@ public function rekapPengirimanProduksi(Request $request)
                 'inspectingMklbjItem',
         ]);
 
-        $query->where('status', 3);
+        $query->whereIn('status', [2, 3]);
 
         if ($no_kirim) {
             $query->where('no', 'like', '%' . $no_kirim . '%');
@@ -888,163 +888,163 @@ public function rekapPengirimanProduksi(Request $request)
     }
 
     public function rekapPengirimanHarian(Request $request)
-{
-    $request->validate([
-        'start_date' => 'nullable|date',
-        'end_date' => 'nullable|date'
-    ]);
+    {
+        $request->validate([
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date'
+        ]);
 
-    $start_date = $request->input('start_date');
-    $end_date = $request->input('end_date');
+        $start_date = $request->input('start_date');
+        $end_date = $request->input('end_date');
 
-    $result = [];
+        $result = [];
 
-    // Konversi satuan ke Yard
-    $unitLabels = [
-        1 => 'Yard',
-        2 => 'Meter',
-        3 => 'Pcs',
-        4 => 'Kilogram',
-    ];
-
-    $unitKonversi = [
-        'Yard' => 1,
-        'Meter' => 1.09361,
-        'Kilogram' => 3,
-        'Pcs' => 1,
-    ];
-
-    // Mapping grade label
-    $gradeLabels = [
-        1 => 'Grade A',
-        2 => 'Grade B',
-        3 => 'Grade C',
-        4 => 'Piece Kecil',
-        5 => 'Sample',
-        7 => 'Grade A+',
-        8 => 'Grade A*',
-        9 => 'Putih',
-    ];
-
-    // Mapping jenis_order
-    $jenisOrderMapInspecting = [
-        1 => 'Dyeing',
-        2 => 'Printing',
-    ];
-
-    $jenisOrderMapMklbj = [
-        1 => 'Makloon Proses',
-        2 => 'Makloon Finish',
-        3 => 'Barang Jadi',
-        4 => 'Fresh',
-    ];
-
-    // Mapping jenis_inspek
-    $jenisInspekMap = [
-        1 => 'Fresh Order',
-        2 => 'Re-Packing',
-        3 => 'Hasil Perbaikan',
-    ];
-
-    // =========================
-    // 1. Inspecting
-    // =========================
-    $query1 = Inspecting::with([
-        'sc.customer',
-        'mo',
-        'wo',
-        'kartuProcessDyeing.kartuProsesDyeingItem',
-        'kartuProcessPrinting.kartuProsesPrintingItem',
-        'inspectingItem'
-    ])->where('status', 4);
-
-    if ($start_date && $end_date) {
-        $query1->whereBetween('date', [$start_date, $end_date]);
-    }
-
-    $inspectings = $query1->get();
-
-    foreach ($inspectings as $inspection) {
-        $unitLabel = $unitLabels[$inspection->unit] ?? 'Tidak Ada';
-        $konversi = $unitKonversi[$unitLabel] ?? 1;
-
-        $gradeTotals = [];
-        foreach ($inspection->inspectingItem as $item) {
-            $gradeName = $gradeLabels[$item->grade] ?? 'Tidak Ada Grade';
-            $convertedQty = round($item->qty * $konversi, 2);
-            $gradeTotals[$gradeName] = round(($gradeTotals[$gradeName] ?? 0) + $convertedQty, 2);
-        }
-
-        $jenisOrder = $jenisOrderMapInspecting[$inspection->jenis_process] ?? 'Tidak Ada';
-        $jenisInspek = $jenisInspekMap[$inspection->jenis_inspek] ?? 'Tidak Ada';
-        $tanggal = $inspection->date;
-
-        $result[$tanggal][$jenisOrder][$jenisInspek][] = [
-            'jenis_order' => $jenisOrder,
-            'jenis_inspek' => $jenisInspek,
-            'satuan' => $unitLabel,
-            'total_per_grade' => $gradeTotals,
-            'total_qty' => round(array_sum($gradeTotals), 2),
+        // Konversi satuan ke Yard
+        $unitLabels = [
+            1 => 'Yard',
+            2 => 'Meter',
+            3 => 'Pcs',
+            4 => 'Kilogram',
         ];
-    }
 
-    // =========================
-    // 2. InspectingMklbj
-    // =========================
-    $query2 = InspectingMklbj::with([
-        'wo',
-        'wo.sc.customer',
-        'wo.woColor',
-        'wo.mo',
-        'woColor.moColor',
-        'inspectingMklbjItem'
-    ])->where('status', 3);
-
-    if ($start_date && $end_date) {
-        $query2->whereBetween('tgl_kirim', [$start_date, $end_date]);
-    }
-
-    $inspectingMklbjs = $query2->get();
-
-    foreach ($inspectingMklbjs as $inspection) {
-        $unitLabel = $unitLabels[$inspection->satuan] ?? 'Tidak Ada';
-        $konversi = $unitKonversi[$unitLabel] ?? 1;
-
-        $gradeTotals = [];
-        foreach ($inspection->inspectingMklbjItem as $item) {
-            $gradeName = $gradeLabels[$item->grade] ?? 'Tidak Ada Grade';
-            $convertedQty = round($item->qty * $konversi, 2);
-            $gradeTotals[$gradeName] = round(($gradeTotals[$gradeName] ?? 0) + $convertedQty, 2);
-        }
-
-        $jenisInspek = $jenisInspekMap[$inspection->jenis_inspek] ?? 'Tidak Ada';
-        $tanggal = $inspection->tgl_kirim;
-
-        if ($inspection->jenis == 4) {
-            // Fresh, gabungkan ke Dyeing atau Printing berdasarkan process
-            $process = optional(optional($inspection->wo)->mo)->process;
-            $jenisOrder = $jenisOrderMapInspecting[$process] ?? 'Tidak Ada';
-        } else {
-            // Selain Fresh masuk ke Makloon
-            $jenisOrder = $jenisOrderMapMklbj[$inspection->jenis] ?? 'Tidak Ada';
-        }
-
-        $result[$tanggal][$jenisOrder][$jenisInspek][] = [
-            'jenis_order' => $jenisOrder,
-            'jenis_inspek' => $jenisInspek,
-            'satuan' => $unitLabel,
-            'total_per_grade' => $gradeTotals,
-            'total_qty' => round(array_sum($gradeTotals), 2),
+        $unitKonversi = [
+            'Yard' => 1,
+            'Meter' => 1.09361,
+            'Kilogram' => 3,
+            'Pcs' => 1,
         ];
+
+        // Mapping grade label
+        $gradeLabels = [
+            1 => 'Grade A',
+            2 => 'Grade B',
+            3 => 'Grade C',
+            4 => 'Piece Kecil',
+            5 => 'Sample',
+            7 => 'Grade A+',
+            8 => 'Grade A*',
+            9 => 'Putih',
+        ];
+
+        // Mapping jenis_order
+        $jenisOrderMapInspecting = [
+            1 => 'Dyeing',
+            2 => 'Printing',
+        ];
+
+        $jenisOrderMapMklbj = [
+            1 => 'Makloon Proses',
+            2 => 'Makloon Finish',
+            3 => 'Barang Jadi',
+            4 => 'Fresh',
+        ];
+
+        // Mapping jenis_inspek
+        $jenisInspekMap = [
+            1 => 'Fresh Order',
+            2 => 'Re-Packing',
+            3 => 'Hasil Perbaikan',
+        ];
+
+        // =========================
+        // 1. Inspecting
+        // =========================
+        $query1 = Inspecting::with([
+            'sc.customer',
+            'mo',
+            'wo',
+            'kartuProcessDyeing.kartuProsesDyeingItem',
+            'kartuProcessPrinting.kartuProsesPrintingItem',
+            'inspectingItem'
+        ])->whereIn('status', [3, 4]);
+
+        if ($start_date && $end_date) {
+            $query1->whereBetween('date', [$start_date, $end_date]);
+        }
+
+        $inspectings = $query1->get();
+
+        foreach ($inspectings as $inspection) {
+            $unitLabel = $unitLabels[$inspection->unit] ?? 'Tidak Ada';
+            $konversi = $unitKonversi[$unitLabel] ?? 1;
+
+            $gradeTotals = [];
+            foreach ($inspection->inspectingItem as $item) {
+                $gradeName = $gradeLabels[$item->grade] ?? 'Tidak Ada Grade';
+                $convertedQty = round($item->qty * $konversi, 2);
+                $gradeTotals[$gradeName] = round(($gradeTotals[$gradeName] ?? 0) + $convertedQty, 2);
+            }
+
+            $jenisOrder = $jenisOrderMapInspecting[$inspection->jenis_process] ?? 'Tidak Ada';
+            $jenisInspek = $jenisInspekMap[$inspection->jenis_inspek] ?? 'Tidak Ada';
+            $tanggal = $inspection->date;
+
+            $result[$tanggal][$jenisOrder][$jenisInspek][] = [
+                'jenis_order' => $jenisOrder,
+                'jenis_inspek' => $jenisInspek,
+                'satuan' => $unitLabel,
+                'total_per_grade' => $gradeTotals,
+                'total_qty' => round(array_sum($gradeTotals), 2),
+            ];
+        }
+
+        // =========================
+        // 2. InspectingMklbj
+        // =========================
+        $query2 = InspectingMklbj::with([
+            'wo',
+            'wo.sc.customer',
+            'wo.woColor',
+            'wo.mo',
+            'woColor.moColor',
+            'inspectingMklbjItem'
+        ])->whereIn('status', [2, 3]);
+
+        if ($start_date && $end_date) {
+            $query2->whereBetween('tgl_kirim', [$start_date, $end_date]);
+        }
+
+        $inspectingMklbjs = $query2->get();
+
+        foreach ($inspectingMklbjs as $inspection) {
+            $unitLabel = $unitLabels[$inspection->satuan] ?? 'Tidak Ada';
+            $konversi = $unitKonversi[$unitLabel] ?? 1;
+
+            $gradeTotals = [];
+            foreach ($inspection->inspectingMklbjItem as $item) {
+                $gradeName = $gradeLabels[$item->grade] ?? 'Tidak Ada Grade';
+                $convertedQty = round($item->qty * $konversi, 2);
+                $gradeTotals[$gradeName] = round(($gradeTotals[$gradeName] ?? 0) + $convertedQty, 2);
+            }
+
+            $jenisInspek = $jenisInspekMap[$inspection->jenis_inspek] ?? 'Tidak Ada';
+            $tanggal = $inspection->tgl_kirim;
+
+            if ($inspection->jenis == 4) {
+                // Fresh, gabungkan ke Dyeing atau Printing berdasarkan process
+                $process = optional(optional($inspection->wo)->mo)->process;
+                $jenisOrder = $jenisOrderMapInspecting[$process] ?? 'Tidak Ada';
+            } else {
+                // Selain Fresh masuk ke Makloon
+                $jenisOrder = $jenisOrderMapMklbj[$inspection->jenis] ?? 'Tidak Ada';
+            }
+
+            $result[$tanggal][$jenisOrder][$jenisInspek][] = [
+                'jenis_order' => $jenisOrder,
+                'jenis_inspek' => $jenisInspek,
+                'satuan' => $unitLabel,
+                'total_per_grade' => $gradeTotals,
+                'total_qty' => round(array_sum($gradeTotals), 2),
+            ];
+        }
+
+
+        ksort($result);
+
+        return response()->json([
+            'data' => $result
+        ]);
     }
-
-
-    ksort($result);
-
-    return response()->json([
-        'data' => $result
-    ]);
-}
 
 
 
