@@ -110,6 +110,7 @@ class KartuProsesDyeingController extends Controller
             }
 
             $woData = Wo::with([
+                'scGreige',
                 'woColor' => function ($query) {
                     $query->select('id', 'wo_id', 'mo_color_id')->with([
                         'moColor' => function ($query) {
@@ -135,6 +136,17 @@ class KartuProsesDyeingController extends Controller
                     'mo_id' => $wo->mo_id,
                     'sc_id' => $wo->sc_id,
                     'sc_greige_id' => $wo->sc_greige_id,
+                    'sc_greige' => $wo->scGreige ? [
+                        'id' => $wo->scGreige->id,
+                        'process' => $wo->scGreige->process,
+                        'lebar_kain' => $wo->scGreige->lebar_kain,
+                        'merek' => $wo->scGreige->merek,
+                        'grade' => $wo->scGreige->grade,
+                        'piece_length' => $wo->scGreige->piece_length,
+                        'unit_price' => $wo->scGreige->unit_price,
+                        'qty' => $wo->scGreige->qty,
+                        'note' => $wo->scGreige->note,
+                    ] : null,
                     'wo_color_id' => $wo->woColor->pluck('id'),
                     'mo_colors' => $wo->woColor->map(function ($woColor) {
                         return [
