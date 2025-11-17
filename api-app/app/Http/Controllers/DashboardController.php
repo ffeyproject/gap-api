@@ -717,9 +717,16 @@ public function store(Request $request)
                 ], 404);
             }
 
-            // Hitung no_urut dengan aman
-            $lastNoUrut = InspectingMklbjItem::where('inspecting_id', $inspecting->id)->max('no_urut');
-            $noUrut = $lastNoUrut ? $lastNoUrut + 1 : 1;
+           // Tentukan no_urut berdasarkan grade
+            if ($validatedData['grade'] == 5) {
+                $noUrut = null; // grade 5 tidak boleh punya nomor urut
+            } else {
+                $lastNoUrut = InspectingMklbjItem::where('inspecting_id', $inspecting->id)
+                    ->whereNotNull('no_urut')
+                    ->max('no_urut');
+
+                $noUrut = $lastNoUrut ? $lastNoUrut + 1 : 1;
+            }
 
             // Generate ID baru untuk qr_code
             $lastId = InspectingMklbjItem::latest('id')->first()->id ?? 0;
@@ -843,17 +850,19 @@ public function store(Request $request)
                 ], 404);
             }
 
-             // Hitung no_urut berdasarkan inspecting_id
-            //            $lastItem = InspectingItem::where('inspecting_id', $inspecting->id)
-            //     ->orderBy('no_urut', 'desc')
-            //     ->first();
+            // $lastNoUrut = InspectingItem::where('inspecting_id', $inspecting->id)
+            // ->max('no_urut');
 
-            // $nextNoUrut = $lastItem ? $lastItem->no_urut + 1 : 1;
+            // Tentukan no_urut berdasarkan grade
+            if ($validatedData['grade'] == 5) {
+                $noUrut = null;  // grade 5 tidak boleh punya nomor urut
+            } else {
+                $lastNoUrut = InspectingItem::where('inspecting_id', $inspecting->id)
+                    ->whereNotNull('no_urut')   // hindari membaca NULL
+                    ->max('no_urut');
 
-            $lastNoUrut = InspectingItem::where('inspecting_id', $inspecting->id)
-            ->max('no_urut');
-
-            $noUrut = $lastNoUrut ? $lastNoUrut + 1 : 1;
+                $noUrut = $lastNoUrut ? $lastNoUrut + 1 : 1;
+            }
 
             // Create the InspectingItem
             $inspectingItem = [
