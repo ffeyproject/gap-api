@@ -506,7 +506,7 @@ public function store(Request $request)
                     // 'qr_code' => 'INS-' . $inspectingMklbj->id . '-' . (InspectingMklbjItem::latest('id')->first()->id + 1),
                     'qr_code' => null,
                     'gsm_item' => $item['gsm_item'] ?? null,
-                    'no_urut' => $item['no_urut'] ?? null,
+                    'no_urut' => (isset($item['grade']) && $item['grade'] == 5) ? null : ($item['no_urut'] ?? null),
                     'qty_bit' => $item['qty_bit'] ?? null,
                 ];
 
@@ -547,7 +547,7 @@ public function store(Request $request)
                     ->first();
 
                 $item->qty_sum = ($isHead && $isHead->id != $item->id) ? null : ($item->join_piece == null || $item->join_piece == "" ? $item->qty : $qtySum);
-                $item->qr_code = 'MKL-' . $item->inspecting_id . '-' . $item->id;
+                $item->qr_code = 'INS2-' . $item->inspecting_id . '-' . $item->id;
                 $item->is_head = ($isHead && $isHead->id != $item->id) ? 0 : 1;
                 $item->qty_count = ($isHead && $isHead->id != $item->id) ? 0 : ($item->join_piece == null || $item->join_piece == "" ? 1 : $qtyCount);
                 $item->save();
@@ -796,7 +796,7 @@ public function store(Request $request)
                     ? 0
                     : (($item->join_piece == null || $item->join_piece == '') ? 1 : $qtyCount);
 
-                $item->qr_code = 'MKL-' . $item->inspecting_id . '-' . $item->id;
+                $item->qr_code = 'INS2-' . $item->inspecting_id . '-' . $item->id;
                 $item->save();
             }
 

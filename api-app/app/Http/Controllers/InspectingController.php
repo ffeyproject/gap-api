@@ -1213,7 +1213,7 @@ class InspectingController extends Controller
                     ? null
                     : ($item->join_piece == null || $item->join_piece == "" ? $item->qty : $qtySum);
 
-                $item->qr_code = 'MKL-' . $item->inspecting_id . '-' . $item->id;
+                $item->qr_code = 'INS2-' . $item->inspecting_id . '-' . $item->id;
                 $item->is_head = ($isHead && $isHead->id != $item->id) ? 0 : 1;
                 $item->qty_count = ($isHead && $isHead->id != $item->id)
                     ? 0
