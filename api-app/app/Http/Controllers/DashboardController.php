@@ -239,11 +239,87 @@ class DashboardController extends Controller
 
 
 
+    // public function kartuDyeing(Request $request)
+    // {
+    //     try {
+    //         $nomorKartu = $request->input('no');
+    //         $kartuProsesDyeing = KartuProsesDyeing::with([
+    //             'wo',
+    //             'woColor.moColor',
+    //             'mo',
+    //             'sc',
+    //             'scGreige',
+    //             'kartuProsesDyeingItem'
+    //         ])
+    //             ->whereIn('status', [3, 4, 5])
+    //             ->whereHas('mo', function($q) {
+    //                 $q->where('process', 1);
+    //             })
+    //             ->when($nomorKartu, function ($query) use ($nomorKartu) {
+    //                 $query->where('no', 'like', '%' . $nomorKartu . '%');
+    //             })
+    //             ->orderBy('created_at', 'desc')
+    //             ->limit(100)
+    //             ->get();
+
+    //         if (count($kartuProsesDyeing) == 0) {
+    //             return response()->json([
+    //                 'success' => false,
+    //                 'message' => 'Maaf nomer kartu yang anda cari tidak ditemukan'
+    //             ]);
+    //         }
+
+    //         return response()->json([
+    //             'success' => true,
+    //             'data' => $kartuProsesDyeing
+    //         ]);
+    //     } catch (\Exception $e) {
+    //         return response()->json([
+    //             'success' => false,
+    //             'error' => $e->getMessage(),
+    //         ], 500);
+    //     }
+    // }
+
     public function kartuDyeing(Request $request)
-    {
-        try {
-            $nomorKartu = $request->input('no');
-            $kartuProsesDyeing = KartuProsesDyeing::with([
+{
+    try {
+        $id = $request->input('id');   // dipakai saat user memilih kartu
+        $no = $request->input('no');   // dipakai saat pencarian awal
+
+        // ======================================================
+        // 1️⃣ MODE DETAIL → jika ID tidak null
+        // ======================================================
+        if (!empty($id)) {
+
+            $data = KartuProsesDyeing::with([
+                    'wo',
+                    'woColor.moColor',
+                    'mo',
+                    'sc',
+                    'scGreige',
+                    'kartuProsesDyeingItem'
+                ])
+                ->where('id', $id)
+                ->first();
+
+            if (!$data) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Data tidak ditemukan'
+                ]);
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => $data
+            ]);
+        }
+
+        // ======================================================
+        // 2️⃣ MODE SEARCH → jika ID null tapi ada NO
+        // ======================================================
+        $list = KartuProsesDyeing::with([
                 'wo',
                 'woColor.moColor',
                 'mo',
@@ -251,35 +327,37 @@ class DashboardController extends Controller
                 'scGreige',
                 'kartuProsesDyeingItem'
             ])
-                ->whereIn('status', [3, 4, 5])
-                ->whereHas('mo', function($q) {
-                    $q->where('process', 1);
-                })
-                ->when($nomorKartu, function ($query) use ($nomorKartu) {
-                    $query->where('no', 'like', '%' . $nomorKartu . '%');
-                })
-                ->orderBy('created_at', 'desc')
-                ->limit(100)
-                ->get();
+            ->whereIn('status', [3, 4, 5])
+            ->whereHas('mo', function($q) {
+                $q->where('process', 1);
+            })
+            ->when($no, function ($query) use ($no) {
+                $query->where('no', 'like', '%' . $no . '%');
+            })
+            ->orderBy('created_at', 'desc')
+            ->limit(100)
+            ->get();
 
-            if (count($kartuProsesDyeing) == 0) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Maaf nomer kartu yang anda cari tidak ditemukan'
-                ]);
-            }
-
-            return response()->json([
-                'success' => true,
-                'data' => $kartuProsesDyeing
-            ]);
-        } catch (\Exception $e) {
+        if ($list->isEmpty()) {
             return response()->json([
                 'success' => false,
-                'error' => $e->getMessage(),
-            ], 500);
+                'message' => 'Maaf nomor kartu tidak ditemukan'
+            ]);
         }
+
+        return response()->json([
+            'success' => true,
+            'data' => $list
+        ]);
+
+    } catch (\Exception $e) {
+
+        return response()->json([
+            'success' => false,
+            'error' => $e->getMessage(),
+        ], 500);
     }
+}
 
 
 
