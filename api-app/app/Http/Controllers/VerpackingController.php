@@ -1046,6 +1046,96 @@ public function rekapPengirimanProduksi(Request $request)
         ]);
     }
 
+    public function rekapPengirimanProduksiBulan(Request $request)
+    {
+        $request->validate([
+            'month' => 'required|numeric|min:1|max:12',
+            'year' => 'required|numeric|min:2000'
+        ]);
+
+        $month = $request->month;
+        $year  = $request->year;
+
+        $start_date = Carbon::create($year, $month, 1)->format('Y-m-d');
+        $end_date   = Carbon::create($year, $month, 1)->endOfMonth()->format('Y-m-d');
+
+        // Mapping grade
+        $gradeLabels = [
+            1 => 'Grade A',
+            2 => 'Grade B',
+            3 => 'Grade C',
+            4 => 'Piece Kecil',
+            5 => 'Sample',
+            7 => 'Grade A+',
+            8 => 'Grade A*',
+            9 => 'Putih',
+        ];
+
+        // Membentuk struktur grade default
+        $defaultGrades = [];
+        foreach ($gradeLabels as $g) {
+            $defaultGrades[$g] = 0;
+        }
+
+        $rekap = []; // hasil akhir
+
+        // =========================
+        // 🔹 Inspecting
+        // =========================
+        $inspectings = Inspecting::with(['inspectingItem'])
+            ->whereIn('status', [3,4])
+            ->whereBetween('date', [$start_date, $end_date])
+            ->get();
+
+        foreach ($inspectings as $inspection) {
+            $tgl = $inspection->date;
+
+            if (!isset($rekap[$tgl])) {
+                $rekap[$tgl] = $defaultGrades; // awalnya semua grade nol
+            }
+
+            foreach ($inspection->inspectingItem as $item) {
+                $gradeName = $gradeLabels[$item->grade] ?? null;
+                if ($gradeName) {
+                    $rekap[$tgl][$gradeName] += $item->qty;
+                }
+            }
+        }
+
+        // =========================
+        // 🔹 Inspecting Makloon
+        // =========================
+        $mklbj = InspectingMklbj::with(['inspectingMklbjItem'])
+            ->whereIn('status', [2,3])
+            ->whereBetween('tgl_kirim', [$start_date, $end_date])
+            ->get();
+
+        foreach ($mklbj as $inspection) {
+            $tgl = $inspection->tgl_kirim;
+
+            if (!isset($rekap[$tgl])) {
+                $rekap[$tgl] = $defaultGrades;
+            }
+
+            foreach ($inspection->inspectingMklbjItem as $item) {
+                $gradeName = $gradeLabels[$item->grade] ?? null;
+                if ($gradeName) {
+                    $rekap[$tgl][$gradeName] += $item->qty;
+                }
+            }
+        }
+
+        // Format hasil agar tgl ikut muncul
+        $formatted = [];
+        foreach ($rekap as $tgl => $grades) {
+            $formatted[] = array_merge(['tgl' => $tgl], $grades);
+        }
+
+        return response()->json([
+            'data' => $formatted
+        ]);
+    }
+
 
 
 

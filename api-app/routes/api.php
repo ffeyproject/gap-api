@@ -108,6 +108,7 @@ Route::prefix('v1')->group(function () {
         Route::get('analisa-pengiriman-produksi', 'VerpackingController@analisaPengirimanProduksi');
         Route::get('analisa-pengiriman-produksi-mklbj', 'VerpackingController@analisaPengirimanProduksiMklbj');
         Route::get('rekap-pengiriman-harian', 'VerpackingController@rekapPengirimanHarian');
+        Route::get('rekap-pengiriman-produksi-bulan', 'VerpackingController@rekapPengirimanProduksiBulan');
     });
 
     Route::group(['prefix' => 'marketing', 'middleware' => 'api'], function () {
