@@ -1052,14 +1052,33 @@ public function rekapPengirimanProduksi(Request $request)
             'month' => 'required|numeric|min:1|max:12',
             'year' => 'required|numeric|min:2000'
         ]);
-
+    
         $month = $request->month;
         $year  = $request->year;
-
+    
         $start_date = Carbon::create($year, $month, 1)->format('Y-m-d');
         $end_date   = Carbon::create($year, $month, 1)->endOfMonth()->format('Y-m-d');
-
-        // Mapping grade
+    
+        // =========================
+        // 🔹 Konversi Satuan
+        // =========================
+        $unitLabels = [
+            1 => 'Yard',
+            2 => 'Meter',
+            3 => 'Pcs',
+            4 => 'Kilogram',
+        ];
+    
+        $unitKonversi = [
+            'Yard'     => 1,
+            'Meter'    => 1.09361,
+            'Kilogram' => 3,
+            'Pcs'      => 1,
+        ];
+    
+        // =========================
+        // 🔹 Mapping grade
+        // =========================
         $gradeLabels = [
             1 => 'Grade A',
             2 => 'Grade B',
@@ -1070,15 +1089,15 @@ public function rekapPengirimanProduksi(Request $request)
             8 => 'Grade A*',
             9 => 'Putih',
         ];
-
-        // Membentuk struktur grade default
+    
+        // Struktur default grade
         $defaultGrades = [];
         foreach ($gradeLabels as $g) {
             $defaultGrades[$g] = 0;
         }
-
-        $rekap = []; // hasil akhir
-
+    
+        $rekap = [];
+    
         // =========================
         // 🔹 Inspecting
         // =========================
@@ -1086,55 +1105,74 @@ public function rekapPengirimanProduksi(Request $request)
             ->whereIn('status', [3,4])
             ->whereBetween('date', [$start_date, $end_date])
             ->get();
-
+    
         foreach ($inspectings as $inspection) {
+    
             $tgl = $inspection->date;
-
+    
             if (!isset($rekap[$tgl])) {
-                $rekap[$tgl] = $defaultGrades; // awalnya semua grade nol
+                $rekap[$tgl] = $defaultGrades;
             }
-
+    
+            // Ambil unit & konversi
+            $unitLabel = $unitLabels[$inspection->unit] ?? 'Yard';
+            $konversi  = $unitKonversi[$unitLabel] ?? 1;
+    
             foreach ($inspection->inspectingItem as $item) {
                 $gradeName = $gradeLabels[$item->grade] ?? null;
                 if ($gradeName) {
-                    $rekap[$tgl][$gradeName] += $item->qty;
+    
+                    // Konversi qty → sama dengan fungsi produksi
+                    $convertedQty = round($item->qty * $konversi, 2);
+    
+                    $rekap[$tgl][$gradeName] += $convertedQty;
                 }
             }
         }
-
+    
         // =========================
-        // 🔹 Inspecting Makloon
+        // 🔹 Inspecting Makloon BJ
         // =========================
         $mklbj = InspectingMklbj::with(['inspectingMklbjItem'])
             ->whereIn('status', [2,3])
             ->whereBetween('tgl_kirim', [$start_date, $end_date])
             ->get();
-
+    
         foreach ($mklbj as $inspection) {
+    
             $tgl = $inspection->tgl_kirim;
-
+    
             if (!isset($rekap[$tgl])) {
                 $rekap[$tgl] = $defaultGrades;
             }
-
+    
+            // Ambil unit & konversi
+            $unitLabel = $unitLabels[$inspection->satuan] ?? 'Yard';
+            $konversi  = $unitKonversi[$unitLabel] ?? 1;
+    
             foreach ($inspection->inspectingMklbjItem as $item) {
                 $gradeName = $gradeLabels[$item->grade] ?? null;
                 if ($gradeName) {
-                    $rekap[$tgl][$gradeName] += $item->qty;
+    
+                    // Konversi qty
+                    $convertedQty = round($item->qty * $konversi, 2);
+    
+                    $rekap[$tgl][$gradeName] += $convertedQty;
                 }
             }
         }
-
-        // Format hasil agar tgl ikut muncul
+    
+        // Format output
         $formatted = [];
         foreach ($rekap as $tgl => $grades) {
             $formatted[] = array_merge(['tgl' => $tgl], $grades);
         }
-
+    
         return response()->json([
             'data' => $formatted
         ]);
     }
+    
 
 
 
