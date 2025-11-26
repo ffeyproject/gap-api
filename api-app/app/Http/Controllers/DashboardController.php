@@ -498,6 +498,13 @@ public function store(Request $request)
             }
         }
 
+        $updatedBy = $users->id ?? null;
+
+        KartuProsesDyeing::where('id', $validatedData['id_kartu'])->update([
+            'status' => 9,
+            'updated_by' => $updatedBy,
+        ]);
+
         return response()->json([
             'success' => true,
             'message' => 'Data Inspecting berhasil disimpan',
