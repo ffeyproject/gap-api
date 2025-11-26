@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\ActionLogKartuDyeing;
 use App\DefectInspectingItem;
 use App\Inspecting;
 use App\InspectingItem;
@@ -144,6 +145,20 @@ class DashboardController extends Controller
         $users = User::where('verification_token', $token)->first();
 
         return response()->json($users);
+    }
+
+    protected function logKartuDyeing($actionName, $kartuProsesId, $description = null)
+    {
+       ActionLogKartuDyeing::create([
+            'user_id'        => Auth::id(),
+            'username'       => Auth::user()->name ?? null,
+            'kartu_proses_id'=> $kartuProsesId,
+            'action_name'    => $actionName,
+            'description'    => $description,
+            'ip'             => request()->ip(),
+            'user_agent'     => request()->userAgent(),
+            'created_at'     => now(),
+        ]);
     }
 
     public function grafik()
@@ -402,6 +417,15 @@ public function store(Request $request)
                 'message' => 'ID Kartu tidak ditemukan atau tidak valid',
             ], 404);
         }
+
+        // ---------------------------------------------------
+        // LOG MAKE UP PACKING via API STORE
+        // ---------------------------------------------------
+        $this->logKartuDyeing(
+            'selesai_inspecting',
+            $kartuProsesDyeing->id,
+            'Selesai melakukan inspecting pada Kartu Proses Dyeing ID: ' . $kartuProsesDyeing->id
+        );
 
         $dataToStore = [
             'sc_id' => $kartuProsesDyeing->sc->id ?? null,
