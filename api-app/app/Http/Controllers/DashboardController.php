@@ -149,9 +149,13 @@ class DashboardController extends Controller
 
     protected function logKartuDyeing($actionName, $kartuProsesId, $description = null)
     {
+        $token = request()->header('Authorization');
+        $token = str_replace('Bearer ', '', $token);
+        $users = User::where('verification_token', $token)->first();
+
        ActionLogKartuDyeing::create([
-            'user_id'        => Auth::id(),
-            'username'       => Auth::user()->full_name ?? null,
+            'user_id'        => $users->id ?? null,
+            'username'       => $users->full_name ?? null,
             'kartu_proses_id'=> $kartuProsesId,
             'action_name'    => $actionName,
             'description'    => $description,
