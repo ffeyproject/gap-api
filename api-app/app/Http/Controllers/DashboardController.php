@@ -151,7 +151,7 @@ class DashboardController extends Controller
     {
        ActionLogKartuDyeing::create([
             'user_id'        => Auth::id(),
-            'username'       => Auth::user()->name ?? null,
+            'username'       => Auth::user()->full_name ?? null,
             'kartu_proses_id'=> $kartuProsesId,
             'action_name'    => $actionName,
             'description'    => $description,
