@@ -525,7 +525,7 @@ public function store(Request $request)
         $updatedBy = $users->id ?? null;
 
         KartuProsesDyeing::where('id', $validatedData['id_kartu'])->update([
-            'status' => 9,
+            'status' => 5,
             'updated_by' => $updatedBy,
         ]);
 
