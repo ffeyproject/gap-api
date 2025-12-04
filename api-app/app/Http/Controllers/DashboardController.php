@@ -346,7 +346,7 @@ class DashboardController extends Controller
                 'scGreige',
                 'kartuProsesDyeingItem'
             ])
-            ->whereIn('status', [3, 4, 5, 13])
+            ->whereIn('status', [3, 4, 5, 11, 13])
             ->whereHas('mo', function($q) {
                 $q->where('process', 1);
             })
