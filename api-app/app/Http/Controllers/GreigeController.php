@@ -36,7 +36,8 @@ public function rekapStockGreige(Request $request)
     // Query stok greige dengan relasi ke tabel Greige
     $query = StockGreige::with('greige:id,nama_kain,available')
         ->whereBetween('date', [$startDate, $endDate])
-        ->where('status', '2');
+        ->where('status', '2')
+        ->where('jenis_gudang', 1);
 
     // Tambahkan filter jika ada input dari request
     if (!empty($status_tsd)) {
