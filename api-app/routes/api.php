@@ -51,6 +51,7 @@ Route::prefix('v1')->group(function () {
     Route::group(['prefix' => 'defect-item', 'middleware' => 'api'], function () {
         Route::get('get-defect-item', 'DefectItemController@countByNoUrut');
         Route::get('get-defect-tgl-kirim', 'DefectItemController@getDefectWithTglKirim');
+        Route::get('get-defect-meter-tgl-kirim', 'DefectItemController@getDefectMeterWithTglKirim');
 
     });
 
