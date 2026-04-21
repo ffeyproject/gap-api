@@ -60,4 +60,9 @@ class StockGreige extends Model
     {
         return $this->belongsTo(GreigeGroup::class, 'greige_group_id');
     }
+
+    public function stockGreigeOpnames()
+    {
+        return $this->hasMany(StockGreigeOpname::class, 'stock_greige_id');
+    }
 }

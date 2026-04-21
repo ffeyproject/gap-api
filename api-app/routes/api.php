@@ -99,6 +99,7 @@ Route::prefix('v1')->group(function () {
 
     Route::group(['prefix' => 'greige', 'middleware' => 'api'], function () {
         Route::get('rekap-stock-greige', 'GreigeController@rekapStockGreige');
+        Route::get('rekap-stock-greige-opname', 'GreigeController@rekapStockGreigeOpname');
     });
 
     Route::group(['prefix' => 'verpacking', 'middleware' => 'api'], function () {
