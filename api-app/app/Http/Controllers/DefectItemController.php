@@ -384,11 +384,19 @@ class DefectItemController extends Controller
                 'inspectingMklbjItem.inspectingMklbj.wo.greige',
             ])
             ->where(function ($query) {
-                // Status harus memenuhi dua kondisi ini
                 $query->whereHas('inspectingItem.inspecting', function ($q) {
-                    $q->where('status', 4);
+                    $q->where('status', 4)
+                      ->where('jenis_process', 1)
+                      ->whereNotNull('kartu_process_dyeing_id')
+                      ->whereNull('kartu_process_printing_id')
+                      ->whereHas('wo.mo', function ($moQ) {
+                          $moQ->where('process', 1);
+                      });
                 })->orWhereHas('inspectingMklbjItem.inspectingMklbj', function ($q) {
-                    $q->where('status', 3);
+                    $q->where('status', 3)
+                      ->whereHas('wo.mo', function ($moQ) {
+                          $moQ->where('process', 1);
+                      });
                 });
             })
             ->where(function ($query) {
@@ -496,9 +504,18 @@ class DefectItemController extends Controller
         ])
         ->where(function ($query) {
             $query->whereHas('inspectingItem.inspecting', function ($q) {
-                $q->where('status', 4);
+                $q->where('status', 4)
+                  ->where('jenis_process', 1)
+                  ->whereNotNull('kartu_process_dyeing_id')
+                  ->whereNull('kartu_process_printing_id')
+                  ->whereHas('wo.mo', function ($moQ) {
+                      $moQ->where('process', 1);
+                  });
             })->orWhereHas('inspectingMklbjItem.inspectingMklbj', function ($q) {
-                $q->where('status', 3);
+                $q->where('status', 3)
+                  ->whereHas('wo.mo', function ($moQ) {
+                      $moQ->where('process', 1);
+                  });
             });
         })
         ->where(function ($query) {
@@ -538,7 +555,22 @@ class DefectItemController extends Controller
             $inspecting = optional($firstDefect->inspectingItem)->inspecting;
             $inspectingMklbj = optional($firstDefect->inspectingMklbjItem)->inspectingMklbj;
 
+            // Filter ketat: Lompati jika jenis_process != 1 atau kartu_process_printing_id terisi
+            if ($inspecting && ($inspecting->jenis_process != 1 || !empty($inspecting->kartu_process_printing_id) || empty($inspecting->kartu_process_dyeing_id))) {
+                continue;
+            }
+
             $wo = optional($inspecting)->wo ?? optional($inspectingMklbj)->wo;
+            $moProcess = optional(optional($wo)->mo)->process;
+
+            // Filter ketat: Lompati jika MO process bukan Dyeing (1) (misal Printing = 2)
+            if ($moProcess && $moProcess != 1) {
+                continue;
+            }
+
+            if ($wo && isset($wo->jenis_order) && $wo->jenis_order != 1) {
+                continue;
+            }
 
             $kartuDyeing = optional($inspecting)->kartuProcessDyeing;
             $kartuPrinting = optional($inspecting)->kartuProcessPrinting;
@@ -597,7 +629,16 @@ class DefectItemController extends Controller
                 $inspecting = $inspectingItem->inspecting;
                 $inspectingMklbj = $inspectingMklbjItem->inspectingMklbj;
 
+                if ($inspecting && ($inspecting->jenis_process != 1 || !empty($inspecting->kartu_process_printing_id) || empty($inspecting->kartu_process_dyeing_id))) {
+                    continue;
+                }
+
                 $wo = optional($inspecting)->wo ?? optional($inspectingMklbj)->wo;
+                $moProcess = optional(optional($wo)->mo)->process;
+
+                if ($moProcess && $moProcess != 1) {
+                    continue;
+                }
 
                 $rollQty = (float) ($inspectingItem->qty ?? $inspectingMklbjItem->qty ?? 0);
                 $grade = $inspectingItem->grade ?? $inspectingMklbjItem->grade;
