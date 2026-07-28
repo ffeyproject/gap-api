@@ -392,11 +392,11 @@ class DefectItemController extends Controller
                 });
             })
             ->where(function ($query) {
-                // Grade harus 2 atau 3
+                // Grade harus 2, 3, atau 8 (Grade A*)
                 $query->whereHas('inspectingItem', function ($q) {
-                    $q->whereIn('grade', [2, 3]);
+                    $q->whereIn('grade', [2, 3, 8]);
                 })->orWhereHas('inspectingMklbjItem', function ($q) {
-                    $q->whereIn('grade', [2, 3]);
+                    $q->whereIn('grade', [2, 3, 8]);
                 });
             })
             ->when($startDate && $endDate, function ($query) use ($startDate, $endDate) {
@@ -434,7 +434,7 @@ class DefectItemController extends Controller
 
                     if ($grade == 2) {
                         $grade2[$namaKain] = ($grade2[$namaKain] ?? 0) + $item->meterage;
-                    } elseif ($grade == 3) {
+                    } elseif ($grade == 3 || $grade == 8) {
                         $grade3[$namaKain] = ($grade3[$namaKain] ?? 0) + $item->meterage;
                     }
                 }
@@ -503,9 +503,9 @@ class DefectItemController extends Controller
         })
         ->where(function ($query) {
             $query->whereHas('inspectingItem', function ($q) {
-                $q->whereIn('grade', [2, 3]);
+                $q->whereIn('grade', [2, 3, 8]);
             })->orWhereHas('inspectingMklbjItem', function ($q) {
-                $q->whereIn('grade', [2, 3]);
+                $q->whereIn('grade', [2, 3, 8]);
             });
         })
         ->when($startDate && $endDate, function ($query) use ($startDate, $endDate) {
@@ -650,7 +650,7 @@ class DefectItemController extends Controller
                     if ($noKartu && !in_array($noKartu, $defectTotals[$key]['grade_2'][$namaKain]['no_kartu'])) {
                         $defectTotals[$key]['grade_2'][$namaKain]['no_kartu'][] = $noKartu;
                     }
-                } elseif ($grade == 3) {
+                } elseif ($grade == 3 || $grade == 8) {
                     if (!isset($defectTotals[$key]['grade_3'][$namaKain])) {
                         $defectTotals[$key]['grade_3'][$namaKain] = ['panjang' => 0, 'no_kartu' => []];
                     }
