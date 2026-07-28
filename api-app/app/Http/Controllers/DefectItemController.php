@@ -658,7 +658,270 @@ class DefectItemController extends Controller
                     ?? optional($inspectingMklbj)->satuan
                     ?? optional($greigeGroup)->unit;
 
-                if ($unit == 2 || strtolower((string)$unit) === 'meter') { // 2 = METER (sesuai mst_greige_group)
+                $unitStr = strtolower(trim((string)$unit));
+                if ($unit == 2 || $unitStr === 'meter' || $unitStr === 'm') { // 2 = METER (sesuai mst_greige_group / unitLabels)
+                    $rollQty = $rollQty * 1.09361;
+                }
+
+                // Ambil defect pertama yang di-input untuk roll ini
+                $noUrut = optional($firstDefect->mstKodeDefect)->no_urut;
+                $namaDefect = optional($firstDefect->mstKodeDefect)->nama_defect;
+                $key = ($noUrut ?? '0') . '|' . ($namaDefect ?? 'Unknown');
+
+                if (!isset($defectTotals[$key])) {
+                    $defectTotals[$key] = [
+                        'no_urut' => (int) ($noUrut ?? 0),
+                        'nama_defect' => $namaDefect ?? 'Unknown',
+                        'grade_2' => [],
+                        'grade_3' => [],
+                    ];
+                }
+
+                $kartuDyeing = optional($inspecting)->kartuProcessDyeing;
+                $kartuPrinting = optional($inspecting)->kartuProcessPrinting;
+
+                $noKartu = optional($kartuDyeing)->nomor_kartu
+                    ?? optional($kartuPrinting)->nomor_kartu
+                    ?? optional($inspectingMklbj)->no_urut;
+
+                if ($grade == 2) {
+                    if (!isset($defectTotals[$key]['grade_2'][$namaKain])) {
+                        $defectTotals[$key]['grade_2'][$namaKain] = ['panjang' => 0, 'no_kartu' => []];
+                    }
+                    $defectTotals[$key]['grade_2'][$namaKain]['panjang'] += $rollQty;
+                    if ($noKartu && !in_array($noKartu, $defectTotals[$key]['grade_2'][$namaKain]['no_kartu'])) {
+                        $defectTotals[$key]['grade_2'][$namaKain]['no_kartu'][] = $noKartu;
+                    }
+                } elseif ($grade == 3 || $grade == 8) {
+                    if (!isset($defectTotals[$key]['grade_3'][$namaKain])) {
+                        $defectTotals[$key]['grade_3'][$namaKain] = ['panjang' => 0, 'no_kartu' => []];
+                    }
+                    $defectTotals[$key]['grade_3'][$namaKain]['panjang'] += $rollQty;
+                    if ($noKartu && !in_array($noKartu, $defectTotals[$key]['grade_3'][$namaKain]['no_kartu'])) {
+                        $defectTotals[$key]['grade_3'][$namaKain]['no_kartu'][] = $noKartu;
+                    }
+                }
+            }
+
+            return collect($defectTotals)->map(function ($item) {
+                $grade2Arr = collect($item['grade_2'])->map(function ($val, $namaKain) {
+                    return [
+                        'nama_kain' => $namaKain,
+                        'panjang' => $val['panjang'],
+                        'no_kartu' => implode(', ', $val['no_kartu']),
+                    ];
+                })->values();
+
+                $grade3Arr = collect($item['grade_3'])->map(function ($val, $namaKain) {
+                    return [
+                        'nama_kain' => $namaKain,
+                        'panjang' => $val['panjang'],
+                        'no_kartu' => implode(', ', $val['no_kartu']),
+                    ];
+                })->values();
+
+                return [
+                    'no_urut' => $item['no_urut'],
+                    'nama_defect' => $item['nama_defect'],
+                    'total_grade_2' => $grade2Arr->sum('panjang'),
+                    'total_grade_3' => $grade3Arr->sum('panjang'),
+                    'grade_2' => $grade2Arr,
+                    'grade_3' => $grade3Arr,
+                ];
+            })
+            ->sortByDesc(function ($item) {
+                return $item['total_grade_2'] + $item['total_grade_3'];
+            })
+            ->values();
+        };
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'kain_dalam' => $processRolls($kainDalamRolls),
+                'kain_luar' => $processRolls($kainLuarRolls),
+            ],
+        ]);
+    }
+
+    public function getDefectMeterWithTglKirimPrinting(Request $request)
+    {
+        $request->validate([
+            'start_date' => 'date',
+            'end_date' => 'date'
+        ]);
+
+        $startDate = $request->input('start_date');
+        $endDate = $request->input('end_date');        
+        $data = DefectInspectingItem::with([
+            'mstKodeDefect',
+            'inspectingItem.stock.greigeGroup',
+            'inspectingItem.stock.greige',
+            'inspectingItem.inspecting.wo.greige.GreigeGroup',
+            'inspectingItem.inspecting.wo.scGreige.greigeGroup',
+            'inspectingItem.inspecting.kartuProcessDyeing',
+            'inspectingItem.inspecting.kartuProcessPrinting',
+            'inspectingMklbjItem.inspectingMklbj.wo.greige.GreigeGroup',
+            'inspectingMklbjItem.inspectingMklbj.wo.scGreige.greigeGroup',
+        ])
+        ->where(function ($query) {
+            $query->whereHas('inspectingItem.inspecting', function ($q) {
+                $q->where('status', 4)
+                  ->where('jenis_process', 2)
+                  ->whereNotNull('kartu_process_printing_id')
+                  ->whereNull('kartu_process_dyeing_id')
+                  ->whereHas('wo.mo', function ($moQ) {
+                      $moQ->where('process', 2);
+                  });
+            })->orWhereHas('inspectingMklbjItem.inspectingMklbj', function ($q) {
+                $q->where('status', 3)
+                  ->whereHas('wo.mo', function ($moQ) {
+                      $moQ->where('process', 2);
+                  });
+            });
+        })
+        ->where(function ($query) {
+            $query->whereHas('inspectingItem', function ($q) {
+                $q->whereIn('grade', [2, 3, 8]);
+            })->orWhereHas('inspectingMklbjItem', function ($q) {
+                $q->whereIn('grade', [2, 3, 8]);
+            });
+        })
+        ->when($startDate && $endDate, function ($query) use ($startDate, $endDate) {
+            $query->where(function ($q) use ($startDate, $endDate) {
+                $q->where(function ($sub) use ($startDate, $endDate) {
+                    $sub->whereHas('inspectingItem.inspecting', function ($inner) use ($startDate, $endDate) {
+                        $inner->whereBetween('date', [$startDate, $endDate]);
+                    });
+                })->orWhere(function ($sub) use ($startDate, $endDate) {
+                    $sub->whereHas('inspectingMklbjItem.inspectingMklbj', function ($inner) use ($startDate, $endDate) {
+                        $inner->whereBetween('tgl_kirim', [$startDate, $endDate]);
+                    });
+                });
+            });
+        })
+        ->get();
+
+        // Group by roll (inspecting_item_id or inspecting_mklbj_item_id)
+        $rolls = $data->groupBy(function($item) {
+            return $item->inspecting_item_id ? 'normal-'.$item->inspecting_item_id : 'mklbj-'.$item->inspecting_mklbj_item_id;
+        });
+
+        $kainDalamRolls = collect();
+        $kainLuarRolls = collect();
+
+        foreach ($rolls as $rollKey => $defectsInRoll) {
+            $firstDefect = $defectsInRoll->first();
+            $stock = optional($firstDefect->inspectingItem)->stock;
+
+            $inspecting = optional($firstDefect->inspectingItem)->inspecting;
+            $inspectingMklbj = optional($firstDefect->inspectingMklbjItem)->inspectingMklbj;
+
+            // Filter ketat: Lompati jika jenis_process != 2 atau kartu_process_printing_id kosong
+            if ($inspecting && ($inspecting->jenis_process != 2 || empty($inspecting->kartu_process_printing_id) || !empty($inspecting->kartu_process_dyeing_id))) {
+                continue;
+            }
+
+            $wo = optional($inspecting)->wo ?? optional($inspectingMklbj)->wo;
+            $moProcess = optional(optional($wo)->mo)->process;
+
+            // Filter ketat: Lompati jika MO process bukan Printing (2)
+            if ($moProcess && $moProcess != 2) {
+                continue;
+            }
+
+            if ($wo && isset($wo->jenis_order) && $wo->jenis_order != 2) {
+                continue;
+            }
+
+            $kartuDyeing = optional($inspecting)->kartuProcessDyeing;
+            $kartuPrinting = optional($inspecting)->kartuProcessPrinting;
+
+            // Prioritaskan dari StockGreige (trn_stock_greige) -> WO greige -> WO scGreige
+            $asalGreige = optional($stock)->asal_greige
+                ?? optional($kartuDyeing)->asal_greige
+                ?? optional($kartuPrinting)->asal_greige;
+
+            $greigeGroup = optional($stock)->greigeGroup
+                ?? optional(optional($wo)->greige)->GreigeGroup 
+                ?? optional(optional($wo)->greige)->greigeGroup 
+                ?? optional(optional($wo)->scGreige)->greigeGroup;
+
+            $greige = optional($stock)->greige ?? optional($wo)->greige;
+
+            $jenisKain = optional($greigeGroup)->jenis_kain ?? $asalGreige;
+            $namaKainGroup = optional($greigeGroup)->nama_kain;
+            $namaKainGreige = optional($greige)->nama_kain;
+
+            $jenisKainStr = strtolower((string)$jenisKain . ' ' . (string)$asalGreige);
+            $namaKainStr = strtolower((string)$namaKainGroup . ' ' . (string)$namaKainGreige);
+
+            // Kain Dalam:
+            // 1. ID jenis_kain / asal_greige = 1 (Water Jet Loom) atau 3 (Rapier Loom)
+            // 2. teks jenis_kain, asal_greige, atau nama_kain mengandung 'water jet', 'waterjet', 'wjl', atau 'rapier'
+            $isKainDalam = (
+                $jenisKain == 1 || $jenisKain == 3 || $asalGreige == 1 || $asalGreige == 3 ||
+                strpos($jenisKainStr, 'water') !== false ||
+                strpos($jenisKainStr, 'jet') !== false ||
+                strpos($jenisKainStr, 'wjl') !== false ||
+                strpos($jenisKainStr, 'rapier') !== false ||
+                strpos($namaKainStr, 'water jet') !== false ||
+                strpos($namaKainStr, 'waterjet') !== false ||
+                strpos($namaKainStr, 'wjl') !== false ||
+                strpos($namaKainStr, 'rapier') !== false
+            );
+
+            if ($isKainDalam) {
+                $kainDalamRolls->put($rollKey, $defectsInRoll);
+            } else {
+                $kainLuarRolls->put($rollKey, $defectsInRoll);
+            }
+        }
+
+        $processRolls = function ($rollsCollection) {
+            $defectTotals = [];
+
+            foreach ($rollsCollection as $rollKey => $defectsInRoll) {
+                $firstDefect = $defectsInRoll->first();
+                $stock = optional($firstDefect->inspectingItem)->stock;
+
+                $inspectingItem = optional($firstDefect->inspectingItem);
+                $inspectingMklbjItem = optional($firstDefect->inspectingMklbjItem);
+
+                $inspecting = $inspectingItem->inspecting;
+                $inspectingMklbj = $inspectingMklbjItem->inspectingMklbj;
+
+                if ($inspecting && ($inspecting->jenis_process != 2 || empty($inspecting->kartu_process_printing_id) || !empty($inspecting->kartu_process_dyeing_id))) {
+                    continue;
+                }
+
+                $wo = optional($inspecting)->wo ?? optional($inspectingMklbj)->wo;
+                $moProcess = optional(optional($wo)->mo)->process;
+
+                if ($moProcess && $moProcess != 2) {
+                    continue;
+                }
+
+                $rollQty = (float) ($inspectingItem->qty ?? $inspectingMklbjItem->qty ?? 0);
+                $grade = $inspectingItem->grade ?? $inspectingMklbjItem->grade;
+
+                $namaKain = optional(optional($wo)->greige)->nama_kain
+                    ?? optional($stock)->greige->nama_kain
+                    ?? optional($stock)->greigeGroup->nama_kain;
+
+                if (!$namaKain) continue;
+
+                $greige = optional($stock)->greige ?? optional($wo)->greige;
+                $greigeGroup = optional($stock)->greigeGroup ?? optional($greige)->GreigeGroup ?? optional($greige)->greigeGroup;
+
+                // Ambil unit: Inspecting (unit), InspectingMklbj (satuan), atau GreigeGroup (unit)
+                // Konversi ke Yard jika unitnya adalah Meter (2 atau 'Meter')
+                $unit = optional($inspecting)->unit
+                    ?? optional($inspectingMklbj)->satuan
+                    ?? optional($greigeGroup)->unit;
+
+                $unitStr = strtolower(trim((string)$unit));
+                if ($unit == 2 || $unitStr === 'meter' || $unitStr === 'm') { // 2 = METER (sesuai mst_greige_group / unitLabels)
                     $rollQty = $rollQty * 1.09361;
                 }
 
