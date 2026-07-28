@@ -544,63 +544,43 @@ class DefectItemController extends Controller
                 $rollQty = $rollQty * 1.09361;
             }
 
-            // Hitung frekuensi setiap defect dalam roll ini
-            $counts = []; // [mst_kode_defect_id => count]
-            $defectInfo = []; // [mst_kode_defect_id => [no_urut, nama_defect]]
-            foreach ($defectsInRoll as $d) {
-                $defectId = $d->mst_kode_defect_id;
-                $counts[$defectId] = ($counts[$defectId] ?? 0) + 1;
-                if (!isset($defectInfo[$defectId])) {
-                    $defectInfo[$defectId] = [
-                        'no_urut' => optional($d->mstKodeDefect)->no_urut,
-                        'nama_defect' => optional($d->mstKodeDefect)->nama_defect,
-                    ];
-                }
+            // Ambil defect pertama yang di-input untuk roll ini
+            $noUrut = optional($firstDefect->mstKodeDefect)->no_urut;
+            $namaDefect = optional($firstDefect->mstKodeDefect)->nama_defect;
+            $key = ($noUrut ?? '0') . '|' . ($namaDefect ?? 'Unknown');
+
+            if (!isset($defectTotals[$key])) {
+                $defectTotals[$key] = [
+                    'no_urut' => (int) ($noUrut ?? 0),
+                    'nama_defect' => $namaDefect ?? 'Unknown',
+                    'grade_2' => [],
+                    'grade_3' => [],
+                ];
             }
 
-            // Cari frekuensi tertinggi
-            $maxCount = max($counts);
-            $winners = array_keys($counts, $maxCount);
-            $numWinners = count($winners);
-            $qtyPerWinner = $rollQty / $numWinners;
-
-            foreach ($winners as $winnerId) {
-                $info = $defectInfo[$winnerId];
-                $key = ($info['no_urut'] ?? '0') . '|' . ($info['nama_defect'] ?? 'Unknown');
-
-                if (!isset($defectTotals[$key])) {
-                    $defectTotals[$key] = [
-                        'no_urut' => (int) ($info['no_urut'] ?? 0),
-                        'nama_defect' => $info['nama_defect'] ?? 'Unknown',
-                        'grade_2' => [],
-                        'grade_3' => [],
-                    ];
+            if ($grade == 2) {
+                if (!isset($defectTotals[$key]['grade_2'][$namaKain])) {
+                    $defectTotals[$key]['grade_2'][$namaKain] = ['panjang' => 0, 'no_kartu' => []];
                 }
-
-                if ($grade == 2) {
-                    if (!isset($defectTotals[$key]['grade_2'][$namaKain])) {
-                        $defectTotals[$key]['grade_2'][$namaKain] = ['panjang' => 0, 'no_kartu' => []];
-                    }
-                    $defectTotals[$key]['grade_2'][$namaKain]['panjang'] += $qtyPerWinner;
-                    $inspecting = optional($firstDefect->inspectingItem)->inspecting;
-                    $noKartu = optional($inspecting)->kartuProcessDyeing->nomor_kartu
-                        ?? optional($inspecting)->kartuProcessPrinting->nomor_kartu
-                        ?? optional(optional($firstDefect->inspectingMklbjItem)->inspectingMklbj)->no_urut;
-                    if ($noKartu && !in_array($noKartu, $defectTotals[$key]['grade_2'][$namaKain]['no_kartu'])) {
-                        $defectTotals[$key]['grade_2'][$namaKain]['no_kartu'][] = $noKartu;
-                    }
-                } elseif ($grade == 3) {
-                    if (!isset($defectTotals[$key]['grade_3'][$namaKain])) {
-                        $defectTotals[$key]['grade_3'][$namaKain] = ['panjang' => 0, 'no_kartu' => []];
-                    }
-                    $defectTotals[$key]['grade_3'][$namaKain]['panjang'] += $qtyPerWinner;
-                    $inspecting = optional($firstDefect->inspectingItem)->inspecting;
-                    $noKartu = optional($inspecting)->kartuProcessDyeing->nomor_kartu
-                        ?? optional($inspecting)->kartuProcessPrinting->nomor_kartu
-                        ?? optional(optional($firstDefect->inspectingMklbjItem)->inspectingMklbj)->no_urut;
-                    if ($noKartu && !in_array($noKartu, $defectTotals[$key]['grade_3'][$namaKain]['no_kartu'])) {
-                        $defectTotals[$key]['grade_3'][$namaKain]['no_kartu'][] = $noKartu;
-                    }
+                $defectTotals[$key]['grade_2'][$namaKain]['panjang'] += $rollQty;
+                $inspecting = optional($firstDefect->inspectingItem)->inspecting;
+                $noKartu = optional($inspecting)->kartuProcessDyeing->nomor_kartu
+                    ?? optional($inspecting)->kartuProcessPrinting->nomor_kartu
+                    ?? optional(optional($firstDefect->inspectingMklbjItem)->inspectingMklbj)->no_urut;
+                if ($noKartu && !in_array($noKartu, $defectTotals[$key]['grade_2'][$namaKain]['no_kartu'])) {
+                    $defectTotals[$key]['grade_2'][$namaKain]['no_kartu'][] = $noKartu;
+                }
+            } elseif ($grade == 3) {
+                if (!isset($defectTotals[$key]['grade_3'][$namaKain])) {
+                    $defectTotals[$key]['grade_3'][$namaKain] = ['panjang' => 0, 'no_kartu' => []];
+                }
+                $defectTotals[$key]['grade_3'][$namaKain]['panjang'] += $rollQty;
+                $inspecting = optional($firstDefect->inspectingItem)->inspecting;
+                $noKartu = optional($inspecting)->kartuProcessDyeing->nomor_kartu
+                    ?? optional($inspecting)->kartuProcessPrinting->nomor_kartu
+                    ?? optional(optional($firstDefect->inspectingMklbjItem)->inspectingMklbj)->no_urut;
+                if ($noKartu && !in_array($noKartu, $defectTotals[$key]['grade_3'][$namaKain]['no_kartu'])) {
+                    $defectTotals[$key]['grade_3'][$namaKain]['no_kartu'][] = $noKartu;
                 }
             }
         }
