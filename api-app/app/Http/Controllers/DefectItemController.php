@@ -385,7 +385,7 @@ class DefectItemController extends Controller
             ])
             ->where(function ($query) {
                 $query->whereHas('inspectingItem.inspecting', function ($q) {
-                    $q->where('status', 4)
+                    $q->whereIn('status', [4, 5])
                       ->where('jenis_process', 1)
                       ->whereNotNull('kartu_process_dyeing_id')
                       ->whereNull('kartu_process_printing_id')
@@ -393,7 +393,7 @@ class DefectItemController extends Controller
                           $moQ->where('process', 1);
                       });
                 })->orWhereHas('inspectingMklbjItem.inspectingMklbj', function ($q) {
-                    $q->where('status', 3)
+                    $q->whereIn('status', [3, 4])
                       ->whereHas('wo.mo', function ($moQ) {
                           $moQ->where('process', 1);
                       });
@@ -504,7 +504,7 @@ class DefectItemController extends Controller
         ])
         ->where(function ($query) {
             $query->whereHas('inspectingItem.inspecting', function ($q) {
-                $q->where('status', 4)
+                $q->whereIn('status', [4, 5])
                   ->where('jenis_process', 1)
                   ->whereNotNull('kartu_process_dyeing_id')
                   ->whereNull('kartu_process_printing_id')
@@ -512,7 +512,7 @@ class DefectItemController extends Controller
                       $moQ->where('process', 1);
                   });
             })->orWhereHas('inspectingMklbjItem.inspectingMklbj', function ($q) {
-                $q->where('status', 3)
+                $q->whereIn('status', [3, 4])
                   ->whereHas('wo.mo', function ($moQ) {
                       $moQ->where('process', 1);
                   });
@@ -766,7 +766,7 @@ class DefectItemController extends Controller
         ])
         ->where(function ($query) {
             $query->whereHas('inspectingItem.inspecting', function ($q) {
-                $q->where('status', 4)
+                $q->whereIn('status', [4, 5])
                   ->where('jenis_process', 2)
                   ->whereNotNull('kartu_process_printing_id')
                   ->whereNull('kartu_process_dyeing_id')
@@ -774,7 +774,7 @@ class DefectItemController extends Controller
                       $moQ->where('process', 2);
                   });
             })->orWhereHas('inspectingMklbjItem.inspectingMklbj', function ($q) {
-                $q->where('status', 3)
+                $q->whereIn('status', [3, 4])
                   ->whereHas('wo.mo', function ($moQ) {
                       $moQ->where('process', 2);
                   });
