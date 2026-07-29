@@ -568,10 +568,6 @@ class DefectItemController extends Controller
                 continue;
             }
 
-            if ($wo && isset($wo->jenis_order) && $wo->jenis_order != 1) {
-                continue;
-            }
-
             $kartuDyeing = optional($inspecting)->kartuProcessDyeing;
             $kartuPrinting = optional($inspecting)->kartuProcessPrinting;
 
@@ -827,10 +823,6 @@ class DefectItemController extends Controller
 
             // Filter ketat: Lompati jika MO process bukan Printing (2)
             if ($moProcess && $moProcess != 2) {
-                continue;
-            }
-
-            if ($wo && isset($wo->jenis_order) && $wo->jenis_order != 2) {
                 continue;
             }
 
