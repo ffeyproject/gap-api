@@ -51,6 +51,11 @@ class InspectingMklbj extends Model
     }
 
 
+    public function createdBy()
+    {
+        return $this->belongsTo(User::class, 'created_by', 'id');
+    }
+
     public function inspectingMklbjItem(): HasMany
     {
         return $this->hasMany(InspectingMklbjItem::class, 'inspecting_id');

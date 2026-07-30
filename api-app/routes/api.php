@@ -53,6 +53,8 @@ Route::prefix('v1')->group(function () {
         Route::get('get-defect-tgl-kirim', 'DefectItemController@getDefectWithTglKirim');
         Route::get('get-defect-meter-tgl-kirim', 'DefectItemController@getDefectMeterWithTglKirim');
         Route::get('get-defect-meter-tgl-kirim-printing', 'DefectItemController@getDefectMeterWithTglKirimPrinting');
+        Route::get('rekap-dyeing', 'KartuProsesDyeingController@rekapDyeing');
+        Route::get('rekap-printing', 'KartuProsesDyeingController@rekapPrinting');
     });
 
     // Work Order (WO) Routes (Authenticated)
@@ -65,11 +67,13 @@ Route::prefix('v1')->group(function () {
     // Kartu Proses Dyeing Routes (Authenticated)
     Route::group(['prefix' => 'kartu-proses-dyeing', 'middleware' => 'api' ], function () {
         Route::get('get-kartu-proses-dyeing/{id}', 'KartuProsesDyeingController@getKartuProsesDyeingById');
+        Route::get('rekap-dyeing', 'KartuProsesDyeingController@rekapDyeing');
     });
 
     // Kartu Proses Printing Routes (Authenticated)
     Route::group(['prefix' => 'kartu-proses-printing', 'middleware' => 'api'], function () {
         Route::get('get-kartu-proses-printing/{id}', 'KartuProsesDyeingController@getKartuProsesPrintingById');
+        Route::get('rekap-printing', 'KartuProsesDyeingController@rekapPrinting');
     });
 
     // Inspecting Routes (Authenticated)
