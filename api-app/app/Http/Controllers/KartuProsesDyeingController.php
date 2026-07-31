@@ -466,14 +466,19 @@ class KartuProsesDyeingController extends Controller
             $jenisKain = optional($greigeGroup)->jenis_kain ?? $asalGreige;
             $jenisKainStr = strtolower((string)$jenisKain . ' ' . (string)$asalGreige);
 
-            $isKainDalam = (
-                $jenisKain == 1 || $jenisKain == 3 || $asalGreige == 1 || $asalGreige == 3 ||
-                strpos($jenisKainStr, 'water') !== false ||
-                strpos($jenisKainStr, 'jet') !== false ||
-                strpos($jenisKainStr, 'wjl') !== false ||
-                strpos($jenisKainStr, 'rapier') !== false
-            );
-            $wjlTsdKl = $isKainDalam ? 'K DALAM' : 'K LUAR';
+            $isBeli = ($asalGreige == 2 || strpos($jenisKainStr, 'beli') !== false);
+            $isWjl = ($jenisKain == 1 || $asalGreige == 1 || strpos($jenisKainStr, 'water') !== false || strpos($jenisKainStr, 'jet') !== false || strpos($jenisKainStr, 'wjl') !== false);
+            $isRapier = ($jenisKain == 3 || $asalGreige == 3 || strpos($jenisKainStr, 'rapier') !== false || strpos($jenisKainStr, 'tsd') !== false);
+
+            if ($isBeli) {
+                $wjlTsdKl = 'K LUAR';
+            } elseif ($isWjl) {
+                $wjlTsdKl = 'WJL';
+            } elseif ($isRapier) {
+                $wjlTsdKl = 'TSD';
+            } else {
+                $wjlTsdKl = 'K LUAR';
+            }
 
             // Inspecting info
             $counterTenter = '-';
@@ -893,14 +898,19 @@ class KartuProsesDyeingController extends Controller
             $jenisKain = optional($greigeGroup)->jenis_kain ?? $asalGreige;
             $jenisKainStr = strtolower((string)$jenisKain . ' ' . (string)$asalGreige);
 
-            $isKainDalam = (
-                $jenisKain == 1 || $jenisKain == 3 || $asalGreige == 1 || $asalGreige == 3 ||
-                strpos($jenisKainStr, 'water') !== false ||
-                strpos($jenisKainStr, 'jet') !== false ||
-                strpos($jenisKainStr, 'wjl') !== false ||
-                strpos($jenisKainStr, 'rapier') !== false
-            );
-            $wjlTsdKl = $isKainDalam ? 'K DALAM' : 'K LUAR';
+            $isBeli = ($asalGreige == 2 || strpos($jenisKainStr, 'beli') !== false);
+            $isWjl = ($jenisKain == 1 || $asalGreige == 1 || strpos($jenisKainStr, 'water') !== false || strpos($jenisKainStr, 'jet') !== false || strpos($jenisKainStr, 'wjl') !== false);
+            $isRapier = ($jenisKain == 3 || $asalGreige == 3 || strpos($jenisKainStr, 'rapier') !== false || strpos($jenisKainStr, 'tsd') !== false);
+
+            if ($isBeli) {
+                $wjlTsdKl = 'K LUAR';
+            } elseif ($isWjl) {
+                $wjlTsdKl = 'WJL';
+            } elseif ($isRapier) {
+                $wjlTsdKl = 'TSD';
+            } else {
+                $wjlTsdKl = 'K LUAR';
+            }
 
             // Inspecting info - Counter Tenter dari Resin finish
             $counterTenter = '-';
@@ -1100,7 +1110,24 @@ class KartuProsesDyeingController extends Controller
             $batch = !empty($mkl->no_lot) && $mkl->no_lot !== '-' ? $mkl->no_lot : '-';
 
             $greyQty = (float) $mkl->inspectingMklbjItem->sum('qty');
-            $wjlTsdKl = 'K LUAR';
+            $asalGreige = optional($wo)->asal_greige ?? optional(optional($wo)->greige)->asal_greige;
+            $greigeGroup = optional(optional($wo)->greige)->GreigeGroup ?? optional(optional($wo)->greige)->greigeGroup;
+            $jenisKain = optional($greigeGroup)->jenis_kain ?? $asalGreige;
+            $jenisKainStr = strtolower((string)$jenisKain . ' ' . (string)$asalGreige);
+
+            $isBeli = ($asalGreige == 2 || strpos($jenisKainStr, 'beli') !== false);
+            $isWjl = ($jenisKain == 1 || $asalGreige == 1 || strpos($jenisKainStr, 'water') !== false || strpos($jenisKainStr, 'jet') !== false || strpos($jenisKainStr, 'wjl') !== false);
+            $isRapier = ($jenisKain == 3 || $asalGreige == 3 || strpos($jenisKainStr, 'rapier') !== false || strpos($jenisKainStr, 'tsd') !== false);
+
+            if ($isBeli) {
+                $wjlTsdKl = 'K LUAR';
+            } elseif ($isWjl) {
+                $wjlTsdKl = 'WJL';
+            } elseif ($isRapier) {
+                $wjlTsdKl = 'TSD';
+            } else {
+                $wjlTsdKl = 'K LUAR';
+            }
             $counterTenter = '-';
 
             $tglInspect = $mkl->tgl_inspeksi ? Carbon::parse($mkl->tgl_inspeksi)->format('d-m-Y') : '-';
