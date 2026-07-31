@@ -293,6 +293,7 @@ class KartuProsesDyeingController extends Controller
         $woYear = $request->input('year_wo') ?? $request->input('tahun_wo') ?? $request->input('year') ?? $request->input('tahun');
 
         $query = Inspecting::with([
+            'kartuProcessDyeing.kartuProsesDyeingItem',
             'kartuProcessDyeing.kartuProsesDyeingProcesses.processDyeing',
             'kartuProcessDyeing.wo.greige.GreigeGroup',
             'kartuProcessDyeing.wo.scGreige',
@@ -673,6 +674,7 @@ class KartuProsesDyeingController extends Controller
 
         // 1. Query Inspecting (Kartu Proses Printing)
         $query1 = Inspecting::with([
+            'kartuProcessPrinting.kartuProsesPrintingItem',
             'kartuProcessPrinting.kartuProsesPrintingProcesses.process',
             'kartuProcessPrinting.wo.greige.GreigeGroup',
             'kartuProcessPrinting.wo.scGreige',
