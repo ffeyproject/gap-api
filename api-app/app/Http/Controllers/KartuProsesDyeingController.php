@@ -464,19 +464,24 @@ class KartuProsesDyeingController extends Controller
             // Asal Greige / Kain Dalam vs Luar (WJL/TSD/KL)
             $asalGreige = optional($stock)->asal_greige ?? optional($kp)->asal_greige;
             $greigeGroup = optional($stock)->greigeGroup ?? optional(optional($wo)->greige)->GreigeGroup;
-            $jenisKain = optional($greigeGroup)->jenis_kain ?? $asalGreige;
-            $jenisKainStr = strtolower((string)$jenisKain . ' ' . (string)$asalGreige);
+            $greige = optional($stock)->greige ?? optional($wo)->greige;
 
-            $isBeli = ($asalGreige == 2 || strpos($jenisKainStr, 'beli') !== false);
-            $isWjl = ($jenisKain == 1 || $asalGreige == 1 || strpos($jenisKainStr, 'water') !== false || strpos($jenisKainStr, 'jet') !== false || strpos($jenisKainStr, 'wjl') !== false);
-            $isRapier = ($jenisKain == 3 || $asalGreige == 3 || strpos($jenisKainStr, 'rapier') !== false || strpos($jenisKainStr, 'tsd') !== false);
+            $jenisKain = optional($greigeGroup)->jenis_kain;
+            $namaKainGroup = optional($greigeGroup)->nama_kain;
+            $namaKainGreige = optional($greige)->nama_kain;
 
-            if ($isBeli) {
+            $textSearch = strtolower((string)$jenisKain . ' ' . (string)$asalGreige . ' ' . (string)$namaKainGroup . ' ' . (string)$namaKainGreige);
+
+            if ($asalGreige == 2 || $jenisKain == 2 || strpos($textSearch, 'beli') !== false) {
                 $wjlTsdKl = 'K LUAR';
-            } elseif ($isWjl) {
-                $wjlTsdKl = 'WJL';
-            } elseif ($isRapier) {
+            } elseif ($jenisKain == 3 || strpos($textSearch, 'rapier') !== false || strpos($textSearch, 'tsd') !== false) {
                 $wjlTsdKl = 'TSD';
+            } elseif ($jenisKain == 1 || strpos($textSearch, 'water') !== false || strpos($textSearch, 'jet') !== false || strpos($textSearch, 'wjl') !== false) {
+                $wjlTsdKl = 'WJL';
+            } elseif ($asalGreige == 3) {
+                $wjlTsdKl = 'TSD';
+            } elseif ($asalGreige == 1) {
+                $wjlTsdKl = 'WJL';
             } else {
                 $wjlTsdKl = 'K LUAR';
             }
@@ -897,19 +902,24 @@ class KartuProsesDyeingController extends Controller
             // Asal Greige / Kain Dalam vs Luar (WJL/TSD/KL)
             $asalGreige = optional($stock)->asal_greige ?? optional($kp)->asal_greige;
             $greigeGroup = optional($stock)->greigeGroup ?? optional(optional($wo)->greige)->GreigeGroup;
-            $jenisKain = optional($greigeGroup)->jenis_kain ?? $asalGreige;
-            $jenisKainStr = strtolower((string)$jenisKain . ' ' . (string)$asalGreige);
+            $greige = optional($stock)->greige ?? optional($wo)->greige;
 
-            $isBeli = ($asalGreige == 2 || strpos($jenisKainStr, 'beli') !== false);
-            $isWjl = ($jenisKain == 1 || $asalGreige == 1 || strpos($jenisKainStr, 'water') !== false || strpos($jenisKainStr, 'jet') !== false || strpos($jenisKainStr, 'wjl') !== false);
-            $isRapier = ($jenisKain == 3 || $asalGreige == 3 || strpos($jenisKainStr, 'rapier') !== false || strpos($jenisKainStr, 'tsd') !== false);
+            $jenisKain = optional($greigeGroup)->jenis_kain;
+            $namaKainGroup = optional($greigeGroup)->nama_kain;
+            $namaKainGreige = optional($greige)->nama_kain;
 
-            if ($isBeli) {
+            $textSearch = strtolower((string)$jenisKain . ' ' . (string)$asalGreige . ' ' . (string)$namaKainGroup . ' ' . (string)$namaKainGreige);
+
+            if ($asalGreige == 2 || $jenisKain == 2 || strpos($textSearch, 'beli') !== false) {
                 $wjlTsdKl = 'K LUAR';
-            } elseif ($isWjl) {
-                $wjlTsdKl = 'WJL';
-            } elseif ($isRapier) {
+            } elseif ($jenisKain == 3 || strpos($textSearch, 'rapier') !== false || strpos($textSearch, 'tsd') !== false) {
                 $wjlTsdKl = 'TSD';
+            } elseif ($jenisKain == 1 || strpos($textSearch, 'water') !== false || strpos($textSearch, 'jet') !== false || strpos($textSearch, 'wjl') !== false) {
+                $wjlTsdKl = 'WJL';
+            } elseif ($asalGreige == 3) {
+                $wjlTsdKl = 'TSD';
+            } elseif ($asalGreige == 1) {
+                $wjlTsdKl = 'WJL';
             } else {
                 $wjlTsdKl = 'K LUAR';
             }
@@ -1114,19 +1124,24 @@ class KartuProsesDyeingController extends Controller
             $greyQty = (float) $mkl->inspectingMklbjItem->sum('qty');
             $asalGreige = optional($wo)->asal_greige ?? optional(optional($wo)->greige)->asal_greige;
             $greigeGroup = optional(optional($wo)->greige)->GreigeGroup ?? optional(optional($wo)->greige)->greigeGroup;
-            $jenisKain = optional($greigeGroup)->jenis_kain ?? $asalGreige;
-            $jenisKainStr = strtolower((string)$jenisKain . ' ' . (string)$asalGreige);
+            $greige = optional($wo)->greige;
 
-            $isBeli = ($asalGreige == 2 || strpos($jenisKainStr, 'beli') !== false);
-            $isWjl = ($jenisKain == 1 || $asalGreige == 1 || strpos($jenisKainStr, 'water') !== false || strpos($jenisKainStr, 'jet') !== false || strpos($jenisKainStr, 'wjl') !== false);
-            $isRapier = ($jenisKain == 3 || $asalGreige == 3 || strpos($jenisKainStr, 'rapier') !== false || strpos($jenisKainStr, 'tsd') !== false);
+            $jenisKain = optional($greigeGroup)->jenis_kain;
+            $namaKainGroup = optional($greigeGroup)->nama_kain;
+            $namaKainGreige = optional($greige)->nama_kain;
 
-            if ($isBeli) {
+            $textSearch = strtolower((string)$jenisKain . ' ' . (string)$asalGreige . ' ' . (string)$namaKainGroup . ' ' . (string)$namaKainGreige);
+
+            if ($asalGreige == 2 || $jenisKain == 2 || strpos($textSearch, 'beli') !== false) {
                 $wjlTsdKl = 'K LUAR';
-            } elseif ($isWjl) {
-                $wjlTsdKl = 'WJL';
-            } elseif ($isRapier) {
+            } elseif ($jenisKain == 3 || strpos($textSearch, 'rapier') !== false || strpos($textSearch, 'tsd') !== false) {
                 $wjlTsdKl = 'TSD';
+            } elseif ($jenisKain == 1 || strpos($textSearch, 'water') !== false || strpos($textSearch, 'jet') !== false || strpos($textSearch, 'wjl') !== false) {
+                $wjlTsdKl = 'WJL';
+            } elseif ($asalGreige == 3) {
+                $wjlTsdKl = 'TSD';
+            } elseif ($asalGreige == 1) {
+                $wjlTsdKl = 'WJL';
             } else {
                 $wjlTsdKl = 'K LUAR';
             }
