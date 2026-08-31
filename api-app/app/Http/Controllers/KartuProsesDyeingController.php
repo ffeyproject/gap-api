@@ -313,15 +313,11 @@ class KartuProsesDyeingController extends Controller
             $query->whereBetween('tanggal_inspeksi', [$startDate, $endDate]);
         }
 
-        if ($woYear || $woMonth) {
-            $query->whereHas('kartuProcessDyeing.wo', function ($woQ) use ($woYear, $woMonth) {
-                if ($woYear) {
-                    $woQ->whereYear('date', $woYear);
-                }
-                if ($woMonth) {
-                    $woQ->whereMonth('date', $woMonth);
-                }
-            });
+        if ($woYear) {
+            $query->whereYear('tanggal_inspeksi', $woYear);
+        }
+        if ($woMonth) {
+            $query->whereMonth('tanggal_inspeksi', $woMonth);
         }
 
         if ($noKartu) {
