@@ -357,7 +357,7 @@ class KartuProsesDyeingController extends Controller
             }
         }
 
-        $inspectings = $query->orderBy('date', 'desc')->orderBy('id', 'desc')->get();
+        $inspectings = $query->orderBy('tanggal_inspeksi', 'desc')->orderBy('id', 'desc')->get();
 
         $reportData = [];
 
@@ -499,7 +499,8 @@ class KartuProsesDyeingController extends Controller
             if ($counterTenter === '-' && !empty($ins->counter_tenter)) {
                 $counterTenter = $ins->counter_tenter;
             }
-            $tglInspect = $ins->date ? Carbon::parse($ins->date)->format('d-m-Y') : '-';
+            $tglInspectVal = $ins->tanggal_inspeksi ?? $ins->date;
+            $tglInspect = $tglInspectVal ? Carbon::parse($tglInspectVal)->format('d-m-Y') : '-';
             $noMesin = $ins->inspection_table ? ('MC ' . $ins->inspection_table) : '-';
             $operator = optional($ins->createdBy)->name ?? optional($ins->createdBy)->full_name ?? '-';
 
