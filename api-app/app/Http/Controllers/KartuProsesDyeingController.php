@@ -310,7 +310,7 @@ class KartuProsesDyeingController extends Controller
         ->whereNull('kartu_process_printing_id');
 
         if ($startDate && $endDate) {
-            $query->whereBetween('date', [$startDate, $endDate]);
+            $query->whereBetween('tanggal_inspeksi', [$startDate, $endDate]);
         }
 
         if ($woYear || $woMonth) {
