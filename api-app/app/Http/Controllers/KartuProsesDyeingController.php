@@ -547,8 +547,8 @@ class KartuProsesDyeingController extends Controller
                     }
                 }
 
-                // Kumpulkan jumlah total roll/pcs per grade sebagai total_defect
-                $gradeData[$targetKey]['total_defect'] += 1;
+                // Kumpulkan total Qty (panjang kain) per grade sebagai total_defect
+                $gradeData[$targetKey]['total_defect'] += $itemQty;
             }
 
             // Format objek grading per kategori grade
