@@ -547,16 +547,8 @@ class KartuProsesDyeingController extends Controller
                     }
                 }
 
-                // Kumpulkan total meterage defect dari relation defect_item
-                if ($item->relationLoaded('defect_item') && count($item->defect_item) > 0) {
-                    foreach ($item->defect_item as $dItem) {
-                        $dMeterage = (float) ($dItem->meterage ?? 0);
-                        if ($unitLabel === 'M') {
-                            $dMeterage = $dMeterage * 1.09361;
-                        }
-                        $gradeData[$targetKey]['total_defect'] += $dMeterage;
-                    }
-                }
+                // Kumpulkan jumlah total roll/pcs per grade sebagai total_defect
+                $gradeData[$targetKey]['total_defect'] += 1;
             }
 
             // Format objek grading per kategori grade
