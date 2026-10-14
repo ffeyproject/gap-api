@@ -39,6 +39,8 @@ class StockGreige extends Model
         'trans_from',
         'id_from',
         'qr_code',
+        'is_hasil_setting',
+        'lokasi_setting',
     ];
 
     public function createdBy()

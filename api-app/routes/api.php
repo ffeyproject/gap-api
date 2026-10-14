@@ -105,6 +105,19 @@ Route::prefix('v1')->group(function () {
     Route::group(['prefix' => 'greige', 'middleware' => 'api'], function () {
         Route::get('rekap-stock-greige', 'GreigeController@rekapStockGreige');
         Route::get('rekap-stock-greige-opname', 'GreigeController@rekapStockGreigeOpname');
+        Route::post('save-daily-stock', 'GreigeController@saveDailyStock');
+        Route::get('get-daily-stock', 'GreigeController@getDailyStock');
+    });
+
+    // Stock Greige Daily Tracking & Matrix Routes (Authenticated)
+    Route::group(['prefix' => 'stock-greige-daily', 'middleware' => 'api'], function () {
+        Route::get('index', 'StockGreigeDailyController@index');
+        Route::get('matrix', 'StockGreigeDailyController@matrix');
+        Route::post('save-snapshot', 'StockGreigeDailyController@saveSnapshot');
+        Route::get('export-excel', 'StockGreigeDailyController@exportExcel');
+        Route::get('detail/{id}', 'StockGreigeDailyController@show');
+        Route::get('incoming-summary', 'StockGreigeDailyController@incomingSummary');
+        Route::delete('delete/{id}', 'StockGreigeDailyController@destroy');
     });
 
     Route::group(['prefix' => 'verpacking', 'middleware' => 'api'], function () {

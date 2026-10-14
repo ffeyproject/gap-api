@@ -38,6 +38,25 @@ class GreigeGroup extends Model
         'lebar_kain',
     ];
 
+    /**
+     * Accessor yang disertakan saat serialize ke array/JSON
+     *
+     * @var array
+     */
+    protected $appends = [
+        'nama',
+    ];
+
+    /**
+     * Alias accessor nama group ($model->nama merujuk ke $model->nama_kain)
+     *
+     * @return string|null
+     */
+    public function getNamaAttribute()
+    {
+        return $this->attributes['nama_kain'] ?? null;
+    }
+
     // -----------------------------------------------------
     //  KONSTANTA & OPSI UNIT (ADAPTASI DARI YII2)
     // -----------------------------------------------------
