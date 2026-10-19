@@ -19,230 +19,25 @@ class MarketingController extends Controller
     private const A_PLUS  = 7;
     private const A_ASTERISK  = 8;
 
-    // public function outstanding(Request $request)
-    // {
-    //     // Validasi input
-    //     $query = $request->query();
+        public function getMarketing()
+    {
+        $marketings = \DB::table('trn_sc as sc')
+            ->join('user as u', 'u.id', '=', 'sc.marketing_id')
+            ->where('u.status', 10)
+            ->select('u.id', 'u.full_name', 'u.username')
+            ->distinct()
+            ->get()
+            ->map(function ($u) {
+                return [
+                    'id'   => $u->id,
+                    'name' => !empty(trim($u->full_name)) ? $u->full_name : $u->username,
+                ];
+            })
+            ->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)
+            ->values();
 
-    //     $validator = Validator::make($query, [
-    //         'customer_id' => 'required|numeric',
-    //         'start_date'  => 'required|date',
-    //         'end_date'    => 'required|date',
-    //         'po_no'       => 'nullable|string',
-    //         'no_wo'       => 'nullable|string',
-    //         'wo_greige'   => 'nullable|string',
-    //     ]);
-
-    //     if ($validator->fails()) {
-    //         return response()->json([
-    //             'status'  => 'error',
-    //             'message' => 'Validation failed',
-    //             'errors'  => $validator->errors(),
-    //         ], 422);
-    //     }
-
-    //     $validated  = $validator->validated();
-    //     $customerId = $validated['customer_id'];
-    //     $startDate  = $validated['start_date'];
-    //     $endDate    = $validated['end_date'];
-    //     $poNo       = $validated['po_no'] ?? null;
-    //     $noWo       = $validated['no_wo'] ?? null;
-    //     $woGreige = $validated['wo_greige'] ?? null;
-
-    //     $qtySumByKartu = \DB::table('trn_inspecting as i')
-    //     ->join('inspecting_item as ii', 'ii.inspecting_id', '=', 'i.id')
-    //     ->select(
-    //         'i.kartu_process_dyeing_id',
-    //         'ii.grade',
-    //         \DB::raw('SUM(ii.qty) as qty_sum'),
-    //         \DB::raw('MIN(i.unit) as unit')
-    //     )
-    //     ->where('i.status', 4)
-    //     ->groupBy('i.kartu_process_dyeing_id', 'ii.grade')
-    //     ->get()
-    //     ->groupBy('kartu_process_dyeing_id')
-    //     ->map(function ($rows) {
-    //         $data = [
-    //             'unit'   => $rows->first()->unit,
-    //             'grades' => [],
-    //         ];
-
-    //         foreach ($rows as $row) {
-    //             $data['grades'][$row->grade] = $row->qty_sum;
-    //         }
-
-    //         return $data;
-    //     });
-
-    //     // Ambil data SC dengan relasi MO, WO, proses
-    //     $scs = Sc::with([
-    //         'mo' => function ($query) use ($poNo, $noWo, $woGreige) {
-    //             $query->where('status', 3)
-    //                 ->where('process', 1)
-    //                 ->when($poNo, function ($q) use ($poNo) {
-    //                     $q->whereNotNull('no_po')
-    //                     ->where('no_po', 'like', "%{$poNo}%");
-    //                 })
-    //                 // ->with([
-    //                 //     'wo.woColor.kartuProsesDyeings.kartuProsesDyeingItem',
-    //                 //     'wo.woColor.kartuProsesDyeings.kartuProsesDyeingProcesses.processDyeing',
-    //                 // ]);
-    //                 ->with([
-    //                 'wo' => function ($woQuery) use ($noWo, $woGreige ) {
-    //                     $woQuery->when($noWo, function ($wq) use ($noWo) {
-    //                         $wq->whereNotNull('no')
-    //                         ->where('no', 'like', "%{$noWo}%");
-    //                     })
-    //                     ->when($woGreige, function ($wq) use ($woGreige) {
-    //                             $wq->whereHas('greige', function ($gq) use ($woGreige) {
-    //                             $gq->whereRaw('LOWER(nama_kain) LIKE ?', ['%' . strtolower($woGreige) . '%']);
-    //                             });
-    //                         })
-    //                     ->with([
-    //                         'greige',
-    //                         'woColor.kartuProsesDyeings.kartuProsesDyeingItem',
-    //                         'woColor.kartuProsesDyeings.kartuProsesDyeingProcesses.processDyeing',
-    //                     ]);
-    //                 }
-    //             ]);
-    //         }
-    //     ])
-    //     ->where('cust_id', $customerId)
-    //     ->whereBetween('date', [$startDate, $endDate])
-    //     ->get();
-
-    //     // Format hasil group per SC
-    //     $formatted = $scs->map(function ($sc) use ($qtySumByKartu) {
-    //         return [
-    //             'sc_no'   => $sc->no,
-    //             'sc_date' => $sc->date,
-    //             'mo_list' => $sc->mo ? $sc->mo->map(function ($mo) use ($qtySumByKartu) {
-    //                 return [
-    //                     'mo_id'   => $mo->id,
-    //                     'mo_no'   => $mo->no,
-    //                     'mo_date' => $mo->date,
-    //                     'mo_po'   => $mo->no_po,
-    //                     'wo_list' => $mo->wo ? $mo->wo->map(function ($wo) use ($qtySumByKartu) {
-    //                         return [
-    //                             'wo_no'     => $wo->no,
-    //                             'wo_date'   => $wo->date,
-    //                             'wo_greige' => optional($wo->greige)->nama_kain,
-    //                             'wo_colors' => $wo->woColor->map(function ($woColor) use ($qtySumByKartu) {
-    //                                 return [
-    //                                     'qty'   => $woColor->qty,
-    //                                     'color' => optional($woColor->moColor)->color,
-    //                                     'kartu_proses' => $woColor->kartuProsesDyeings->map(function ($kp) use ($qtySumByKartu) {
-    //                                         $qtyData = $qtySumByKartu->get($kp->id, ['grades' => [], 'unit' => null]);
-
-    //                                         $unitName = $qtyData['unit'] == 1 ? 'Yard' : ($qtyData['unit'] == 2 ? 'Meter' : null);
-
-    //                                         $gradeLabels = [
-    //                                             'A'           => 'A',
-    //                                             'B'           => 'B',
-    //                                             'C'           => 'C',
-    //                                             'PK'          => 'PK',
-    //                                             'Sample'      => 'Sample',
-    //                                             'A_PLUS'      => 'A+',
-    //                                             'A_ASTERISK'  => 'A*',
-    //                                         ];
-
-    //                                         $qtyGrades = [
-    //                                             'A'           => ($qtyData['grades'][self::A] ?? 0),
-    //                                             'B'           => ($qtyData['grades'][self::B] ?? 0) ,
-    //                                             'C'           => ($qtyData['grades'][self::C] ?? 0) ,
-    //                                             'PK'          => ($qtyData['grades'][self::PK] ?? 0) ,
-    //                                             'Sample'      => ($qtyData['grades'][self::Sample] ?? 0) ,
-    //                                             'A_PLUS'      => ($qtyData['grades'][self::A_PLUS] ?? 0) ,
-    //                                             'A_ASTERISK'  => ($qtyData['grades'][self::A_ASTERISK] ?? 0)
-    //                                         ];
-
-    //                                         return [
-    //                                             'no'   => $kp->nomor_kartu,
-    //                                             'date' => $kp->date,
-    //                                             'berat' => $kp->berat,
-    //                                             'lebar' => $kp->lebar,
-    //                                             'approved' => $kp->approved_at,
-    //                                             // 'qty_sum_terima' => collect($qtyGrades)->map(function($v, $k) use ($gradeLabels) {
-    //                                             //     return $gradeLabels[$k] . ': ' . $v;
-    //                                             // })->implode(', '),
-    //                                             'qty_sum_terima' => collect($qtyGrades)->mapWithKeys(function($v, $k) use ($gradeLabels) {
-    //                                                 return [$gradeLabels[$k] => $v];
-    //                                             }),
-    //                                             'unit' => $unitName,
-
-    //                                             'items' => $kp->kartuProsesDyeingItem->map(function ($item) {
-    //                                                 return [
-    //                                                     'roll_no' => $item->roll_no,
-    //                                                     'meter'   => $item->meter,
-    //                                                 ];
-    //                                             }),
-
-    //                                             'panjang_greige' => $kp->kartuProsesDyeingItem->sum('panjang_m'),
-
-    //                                             'processes' => $kp->kartuProsesDyeingProcesses
-    //                                                 ? $kp->kartuProsesDyeingProcesses
-    //                                                     ->whereIn('process_id', [1, 3, 8, 15, 18, 19, 21, 23, 24])
-    //                                                     ->map(function ($process) {
-    //                                                         $decoded = json_decode($process->value, true);
-    //                                                         $tanggal = $decoded['tanggal'] ?? null;
-
-    //                                                         return [
-    //                                                             'process_id'   => $process->process_id,
-    //                                                             'process_name' => optional($process->processDyeing)->nama_proses,
-    //                                                             'value'        => $tanggal,
-    //                                                             'note'         => $process->note,
-    //                                                         ];
-    //                                                     })
-    //                                                     ->values()
-    //                                                 : [],
-    //                                         ];
-    //                                     }),
-    //                                 ];
-    //                             }),
-    //                         ];
-    //                     }) : [],
-    //                 ];
-    //             }) : [],
-    //         ];
-    //     });
-
-    //     // ✅ Hitung total_by_grade dari hasil formatted
-    //     $totals = [
-    //         'A'   => 0,
-    //         'B'   => 0,
-    //         'C'   => 0,
-    //         'PK'  => 0,
-    //         'Sample' => 0,
-    //         'A+'  => 0,   // ✅ pakai label final
-    //         'A*'  => 0,   // ✅ pakai label final
-    //     ];
-
-    //     foreach ($formatted as $sc) {
-    //         foreach ($sc['mo_list'] as $mo) {
-    //             foreach ($mo['wo_list'] as $wo) {
-    //                 foreach ($wo['wo_colors'] as $woColor) {
-    //                     foreach ($woColor['kartu_proses'] as $kp) {
-    //                         foreach ($kp['qty_sum_terima'] as $grade => $val) {
-    //                             $totals[$grade] += $val;
-    //                         }
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //     }
-
-    //     return response()->json([
-    //         'status' => 'success',
-    //         'data'   => [
-    //             'grouped_outstanding_items' => $formatted,
-    //             'total_by_grade' => $totals ?? [
-    //             'A' => 0, 'B' => 0, 'C' => 0,
-    //             'PK' => 0, 'Sample' => 0,
-    //             'A+' => 0, 'A*' => 0,
-    //         ],
-    //         ],
-    //     ]);
-    // }
+        return response()->json($marketings);
+    }
 
 
 
@@ -252,7 +47,8 @@ class MarketingController extends Controller
         $query = $request->query();
 
         $validator = Validator::make($query, [
-            'customer_id' => 'required|numeric',
+            'customer_id'  => 'nullable|numeric',
+            'marketing_id' => 'nullable|numeric',
             'start_date'  => 'required|date',
             'end_date'    => 'required|date',
             'po_no'       => 'nullable|string',
@@ -270,13 +66,22 @@ class MarketingController extends Controller
         }
 
         $validated  = $validator->validated();
-        $customerId = $validated['customer_id'];
-        $startDate  = $validated['start_date'];
+        $customerId  = $validated['customer_id'] ?? null;
+        $marketingId = $validated['marketing_id'] ?? null;
+        $startDate   = $validated['start_date'];
         $endDate    = $validated['end_date'];
         $poNo       = $validated['po_no'] ?? null;
         $noWo       = $validated['no_wo'] ?? null;
         $woGreige   = $validated['wo_greige'] ?? null;
         $isSisaan   = filter_var($request->query('is_sisaan', false), FILTER_VALIDATE_BOOLEAN) || $request->query('is_sisaan') === '1';
+
+        if (!$customerId && !$marketingId) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Validation failed',
+                'errors'  => ['customer_id' => ['Pilih Customer atau Marketing terlebih dahulu']],
+            ], 422);
+        }
 
         // Ambil data pengiriman buyer per MO
         $kirimByMo = \DB::table('trn_kirim_buyer as k')
@@ -350,6 +155,8 @@ class MarketingController extends Controller
 
         // Ambil data SC dengan relasi MO, WO, proses
         $scs = Sc::with([
+            'customer',
+            'marketing',
             'mo' => function ($query) use ($poNo, $noWo, $woGreige) {
                 $query->where('status', 3)
                     ->where('process', 1)
@@ -379,7 +186,12 @@ class MarketingController extends Controller
                     ]);
             }
         ])
-        ->where('cust_id', $customerId)
+        ->when($customerId, function ($q) use ($customerId) {
+            $q->where('cust_id', $customerId);
+        })
+        ->when($marketingId, function ($q) use ($marketingId) {
+            $q->where('marketing_id', $marketingId);
+        })
         ->whereBetween('date', [$startDate, $endDate])
         ->get();
 
@@ -574,9 +386,13 @@ class MarketingController extends Controller
             }
 
             return [
-                'sc_no'   => $sc->no,
-                'sc_date' => $sc->date,
-                'mo_list' => $moList,
+                'sc_no'          => $sc->no,
+                'sc_date'        => $sc->date,
+                'customer_id'    => $sc->cust_id,
+                'customer_name'  => optional($sc->customer)->name ?? '-',
+                'marketing_id'   => $sc->marketing_id,
+                'marketing_name' => optional($sc->marketing)->full_name ?? (optional($sc->marketing)->username ?? '-'),
+                'mo_list'        => $moList,
             ];
         })->filter()->values();
 
@@ -594,7 +410,8 @@ class MarketingController extends Controller
         $query = $request->query();
 
         $validator = Validator::make($query, [
-            'customer_id' => 'required|numeric',
+            'customer_id'  => 'nullable|numeric',
+            'marketing_id' => 'nullable|numeric',
             'start_date'  => 'required|date',
             'end_date'    => 'required|date',
             'po_no'       => 'nullable|string',
@@ -612,13 +429,22 @@ class MarketingController extends Controller
         }
 
         $validated  = $validator->validated();
-        $customerId = $validated['customer_id'];
-        $startDate  = $validated['start_date'];
+        $customerId  = $validated['customer_id'] ?? null;
+        $marketingId = $validated['marketing_id'] ?? null;
+        $startDate   = $validated['start_date'];
         $endDate    = $validated['end_date'];
         $poNo       = $validated['po_no'] ?? null;
         $noWo       = $validated['no_wo'] ?? null;
         $woGreige   = $validated['wo_greige'] ?? null;
         $isSisaan   = filter_var($request->query('is_sisaan', false), FILTER_VALIDATE_BOOLEAN) || $request->query('is_sisaan') === '1';
+
+        if (!$customerId && !$marketingId) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Validation failed',
+                'errors'  => ['customer_id' => ['Pilih Customer atau Marketing terlebih dahulu']],
+            ], 422);
+        }
 
         // Ambil data pengiriman buyer per MO
         $kirimByMo = \DB::table('trn_kirim_buyer as k')
@@ -715,6 +541,8 @@ class MarketingController extends Controller
                     });
             })
             ->with([
+                'customer',
+                'marketing',
                 'mo' => function ($query) use ($poNo, $noWo, $woGreige) {
                     $query->where('status', 3)
                         ->where('process', 2)
@@ -744,7 +572,12 @@ class MarketingController extends Controller
                         ]);
                 }
             ])
-            ->where('cust_id', $customerId)
+            ->when($customerId, function ($q) use ($customerId) {
+                $q->where('cust_id', $customerId);
+            })
+            ->when($marketingId, function ($q) use ($marketingId) {
+                $q->where('marketing_id', $marketingId);
+            })
             ->whereBetween('date', [$startDate, $endDate])
             ->get();
 
@@ -947,9 +780,13 @@ class MarketingController extends Controller
             }
 
             return [
-                'sc_no'   => $sc->no,
-                'sc_date' => $sc->date,
-                'mo_list' => $moList,
+                'sc_no'          => $sc->no,
+                'sc_date'        => $sc->date,
+                'customer_id'    => $sc->cust_id,
+                'customer_name'  => optional($sc->customer)->name ?? '-',
+                'marketing_id'   => $sc->marketing_id,
+                'marketing_name' => optional($sc->marketing)->full_name ?? (optional($sc->marketing)->username ?? '-'),
+                'mo_list'        => $moList,
             ];
         })->filter()->values();
 
@@ -965,7 +802,8 @@ class MarketingController extends Controller
     {
         // 1️⃣ Validasi input
         $validator = Validator::make($request->all(), [
-            'customer_id' => 'required|numeric',
+            'customer_id'  => 'nullable|numeric',
+            'marketing_id' => 'nullable|numeric',
             'start_date'  => 'required|date',
             'end_date'    => 'required|date',
         ]);
