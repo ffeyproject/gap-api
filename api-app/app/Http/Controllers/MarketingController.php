@@ -214,9 +214,10 @@ class MarketingController extends Controller
                     $targetQtyMo *= 1.093613298;
                 }
                 $totalKirim = (float) ($kirimByMo->get($mo->id, 0));
+                $sisaQty = $targetQtyMo - $totalKirim;
 
-                // Jika menu sisaan: MO yang sudah terkirim penuh (tidak ada sisaan) jangan dimunculkan
-                if ($isSisaan && $targetQtyMo > 0 && $totalKirim >= $targetQtyMo) {
+                // Jika menu sisaan: jangan muncul sisaan jika toleransi sisa <= 5% dari target Qty MO (-5% toleransi kirim)
+                if ($isSisaan && $targetQtyMo > 0 && ($sisaQty <= ($targetQtyMo * 0.05))) {
                     return null;
                 }
 
@@ -600,9 +601,10 @@ class MarketingController extends Controller
                     $targetQtyMo *= 1.093613298;
                 }
                 $totalKirim = (float) ($kirimByMo->get($mo->id, 0));
+                $sisaQty = $targetQtyMo - $totalKirim;
 
-                // Jika menu sisaan: MO yang sudah terkirim penuh (tidak ada sisaan) jangan dimunculkan
-                if ($isSisaan && $targetQtyMo > 0 && $totalKirim >= $targetQtyMo) {
+                // Jika menu sisaan: jangan muncul sisaan jika toleransi sisa <= 5% dari target Qty MO (-5% toleransi kirim)
+                if ($isSisaan && $targetQtyMo > 0 && ($sisaQty <= ($targetQtyMo * 0.05))) {
                     return null;
                 }
 
