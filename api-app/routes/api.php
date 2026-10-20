@@ -136,6 +136,8 @@ Route::prefix('v1')->group(function () {
         Route::get('outstanding-printing', 'MarketingController@outstandingPrinting');
         Route::get('follow-sc', 'MarketingController@followSc');
         Route::get('kirim-buyer', 'MarketingController@kirimBuyer');
+        Route::post('close-mo', 'MarketingController@closeMo');
+        Route::post('reopen-mo', 'MarketingController@reopenMo');
     });
 
 

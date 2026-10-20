@@ -5,6 +5,9 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use App\Sc;
+use App\Mo;
+use App\Wo;
+use App\User;
 use Illuminate\Support\Facades\DB;
 
 class MarketingController extends Controller
@@ -1059,4 +1062,222 @@ class MarketingController extends Controller
 
 
 
+
+    /**
+     * Dapatkan user yang sedang login dari header Authorization
+     */
+    protected function getAuthenticatedUser(?Request $request = null)
+    {
+        $request = $request ?: request();
+        $authHeader = $request->header('Authorization', '');
+        $token = trim(str_replace('Bearer ', '', $authHeader));
+
+        if (empty($token)) {
+            return null;
+        }
+
+        // 1. Ekstrak 'sub' dari JWT token jika ada
+        $parts = explode('.', $token);
+        if (count($parts) === 3) {
+            $payloadJson = base64_decode(strtr($parts[1], '-_', '+/'));
+            if ($payloadJson) {
+                $payload = json_decode($payloadJson, true);
+                if (isset($payload['sub']) && is_numeric($payload['sub'])) {
+                    $user = User::find((int)$payload['sub']);
+                    if ($user) return $user;
+                }
+            }
+        }
+
+        // 2. Fallback: Cari di tabel user berdasarkan verification_token
+        try {
+            $user = User::where('verification_token', $token)->first();
+            if ($user) return $user;
+        } catch (\Throwable $e) {}
+
+        return null;
+    }
+
+    /**
+     * Close manual MO oleh marketing yang bersangkutan atau manager/admin
+     */
+    public function closeMo(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'mo_id' => 'required|numeric',
+            'note'  => 'nullable|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Validasi gagal',
+                'errors'  => $validator->errors(),
+            ], 422);
+        }
+
+        $moId = $request->input('mo_id');
+        $note = trim($request->input('note')) ?: 'Close manual, Qty Sudah terpenuhi';
+
+        $mo = Mo::select('id', 'sc_id', 'no', 'status')->find($moId);
+        if (!$mo) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Data MO tidak ditemukan',
+            ], 404);
+        }
+
+        // Dapatkan user yang sedang login
+        $user = $this->getAuthenticatedUser($request);
+        if (!$user) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Sesi login tidak valid atau telah berakhir. Silakan login kembali.',
+            ], 401);
+        }
+
+        // Cek marketing bersangkutan langsung via query ringan trn_sc
+        $scData = DB::table('trn_sc')
+            ->leftJoin('user', 'trn_sc.marketing_id', '=', 'user.id')
+            ->where('trn_sc.id', $mo->sc_id)
+            ->select('trn_sc.marketing_id', 'user.full_name', 'user.username')
+            ->first();
+
+        $marketingId = $scData ? $scData->marketing_id : null;
+        $marketingName = $scData ? ($scData->full_name ?: ($scData->username ?: 'Marketing')) : 'Marketing';
+
+        // Cek apakah user adalah marketing yang bersangkutan atau manager/admin
+        $isMarketingBersangkutan = ((int)$user->id === (int)$marketingId);
+        $userRoles = DB::table('auth_assignment')->where('user_id', (string)$user->id)->pluck('item_name')->toArray();
+        $privilegedRoles = ['Developer', 'Super Admin', 'Direktur Marketing', 'Manager Marketing'];
+        $isPrivileged = !empty(array_intersect($userRoles, $privilegedRoles));
+
+        if (!$isMarketingBersangkutan && !$isPrivileged) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => "Anda tidak memiliki izin untuk close MO ini. Hanya marketing yang bersangkutan ({$marketingName}) atau manager yang berhak melakukan close manual.",
+            ], 403);
+        }
+
+        DB::beginTransaction();
+        try {
+            $now = time();
+
+            // Update trn_mo (status 5 = Closed)
+            $mo->status = 5;
+            $mo->closed_at = $now;
+            $mo->closed_by = (int)$user->id;
+            $mo->closed_note = $note;
+            $mo->updated_at = $now;
+            $mo->updated_by = (int)$user->id;
+            $mo->save();
+
+            // Update child trn_wo (status 7 = Closed) via DB Query Builder to avoid timestamp format mismatch
+            DB::table('trn_wo')->where('mo_id', $mo->id)->update([
+                'status'      => 7,
+                'closed_at'   => $now,
+                'closed_by'   => (int)$user->id,
+                'closed_note' => $note,
+                'updated_at'  => $now,
+                'updated_by'  => (int)$user->id,
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'status'  => 'success',
+                'message' => "MO {$mo->no} berhasil di-close manual.",
+            ]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Gagal melakukan close manual: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Buka kembali (reopen) MO yang sebelumnya di-close
+     */
+    public function reopenMo(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'mo_id' => 'required|numeric',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Validasi gagal',
+                'errors'  => $validator->errors(),
+            ], 422);
+        }
+
+        $moId = $request->input('mo_id');
+        $mo = Mo::with('sc.marketing')->find($moId);
+        if (!$mo) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Data MO tidak ditemukan',
+            ], 404);
+        }
+
+        $user = $this->getAuthenticatedUser($request);
+        if (!$user) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Sesi login tidak valid atau telah berakhir',
+            ], 401);
+        }
+
+        $marketingId = optional($mo->sc)->marketing_id;
+        $marketingName = optional(optional($mo->sc)->marketing)->full_name ?? (optional(optional($mo->sc)->marketing)->username ?? 'Marketing');
+
+        $isMarketingBersangkutan = ((int)$user->id === (int)$marketingId);
+        $userRoles = DB::table('auth_assignment')->where('user_id', (string)$user->id)->pluck('item_name')->toArray();
+        $privilegedRoles = ['Developer', 'Super Admin', 'Direktur Marketing', 'Manager Marketing'];
+        $isPrivileged = !empty(array_intersect($userRoles, $privilegedRoles));
+
+        if (!$isMarketingBersangkutan && !$isPrivileged) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => "Anda tidak memiliki izin untuk membuka kembali MO ini. Hanya marketing yang bersangkutan ({$marketingName}) atau manager yang berhak.",
+            ], 403);
+        }
+
+        DB::beginTransaction();
+        try {
+            $now = time();
+            $mo->status = 3; // active in trn_mo
+            $mo->closed_at = null;
+            $mo->closed_by = null;
+            $mo->closed_note = null;
+            $mo->updated_at = $now;
+            $mo->updated_by = (int)$user->id;
+            $mo->save();
+
+            DB::table('trn_wo')->where('mo_id', $mo->id)->update([
+                'status'      => 5, // active in trn_wo
+                'closed_at'   => null,
+                'closed_by'   => null,
+                'closed_note' => null,
+                'updated_at'  => $now,
+                'updated_by'  => (int)$user->id,
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'status'  => 'success',
+                'message' => "MO {$mo->no} berhasil dibuka kembali.",
+            ]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Gagal membuka kembali MO: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
 }

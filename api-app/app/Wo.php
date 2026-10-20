@@ -13,6 +13,8 @@ class Wo extends Model
 
     public $table = "trn_wo";
 
+    public $timestamps = false;
+
     protected $fillable = [
         'id',
         'sc_id',
