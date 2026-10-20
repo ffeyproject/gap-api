@@ -100,7 +100,7 @@ class MarketingController extends Controller
                 \DB::raw('SUM(ii.qty) as qty_sum'),
                 \DB::raw('MIN(i.unit) as unit')
             )
-            ->where('i.status', 4)
+            ->whereIn('i.status', [1, 2, 3, 4, 5])
             ->groupBy('i.kartu_process_dyeing_id', 'ii.grade')
             ->get()
             ->groupBy('kartu_process_dyeing_id')
@@ -123,7 +123,7 @@ class MarketingController extends Controller
                 'imi.grade',
                 \DB::raw('SUM(imi.qty) as qty_sum')
             )
-            ->where('im.status', 3)
+            ->whereIn('im.status', [1, 2, 3, 4])
             ->groupBy('im.wo_color_id', 'imi.grade')
             ->get()
             ->groupBy('wo_color_id')
@@ -464,7 +464,7 @@ class MarketingController extends Controller
                 \DB::raw('SUM(ii.qty) as qty_sum'),
                 \DB::raw('MIN(i.unit) as unit')
             )
-            ->where('i.status', 4)
+            ->whereIn('i.status', [1, 2, 3, 4, 5])
             ->whereNotNull('i.kartu_process_printing_id')
             ->groupBy('i.kartu_process_printing_id', 'ii.grade')
             ->get()
@@ -490,7 +490,7 @@ class MarketingController extends Controller
                 'imi.grade',
                 \DB::raw('SUM(imi.qty) as qty_sum')
             )
-            ->where('im.status', 3)
+            ->whereIn('im.status', [1, 2, 3, 4])
             ->where('mo.process', 2)
             ->groupBy('im.wo_color_id', 'imi.grade')
             ->get()
