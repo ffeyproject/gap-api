@@ -94,6 +94,15 @@ class MarketingController extends Controller
             ->select('k.mo_id', \DB::raw('SUM(i.qty) as total_kirim'))
             ->pluck('total_kirim', 'k.mo_id');
 
+        // Ambil data retur dari pengiriman buyer (gudang jadi) per MO, menambah sisa qty
+        $returByMo = \DB::table('trn_retur_buyer as r')
+            ->join('trn_retur_buyer_item as ri', 'ri.retur_buyer_id', '=', 'r.id')
+            ->whereNotNull('r.mo_id')
+            ->where('r.jenis_gudang', 1)
+            ->groupBy('r.mo_id')
+            ->select('r.mo_id', \DB::raw('SUM(ri.qty) as total_retur'))
+            ->pluck('total_retur', 'r.mo_id');
+
         // Ambil qty per grade dari Inspecting (punya kartu proses)
         $qtySumByKartu = \DB::table('trn_inspecting as i')
             ->join('inspecting_item as ii', 'ii.inspecting_id', '=', 'i.id')
@@ -202,8 +211,8 @@ class MarketingController extends Controller
         $gradeKeys = ['A','A+','A*','B','C','PK','Sample'];
 
         // Format hasil group per SC
-        $formatted = $scs->map(function ($sc) use ($qtySumByKartu, $qtyMklbj, $gradeKeys, $kirimByMo, $isSisaan) {
-            $moList = $sc->mo ? $sc->mo->map(function ($mo) use ($qtySumByKartu, $qtyMklbj, $gradeKeys, $kirimByMo, $isSisaan) {
+        $formatted = $scs->map(function ($sc) use ($qtySumByKartu, $qtyMklbj, $gradeKeys, $kirimByMo, $returByMo, $isSisaan) {
+            $moList = $sc->mo ? $sc->mo->map(function ($mo) use ($qtySumByKartu, $qtyMklbj, $gradeKeys, $kirimByMo, $returByMo, $isSisaan) {
                 // Perhitungan Qty MO target (Yard / Meter)
                 $totalBatchMo = collect($mo->wo)->flatMap(function ($w) {
                     return $w->woColor ?? [];
@@ -217,7 +226,8 @@ class MarketingController extends Controller
                     $targetQtyMo *= 1.093613298;
                 }
                 $totalKirim = (float) ($kirimByMo->get($mo->id, 0));
-                $sisaQty = $targetQtyMo - $totalKirim;
+                $totalRetur = (float) ($returByMo->get($mo->id, 0));
+                $sisaQty = $targetQtyMo - $totalKirim + $totalRetur;
 
                 // Jika menu sisaan: jangan muncul sisaan jika toleransi sisa <= 5% dari target Qty MO (-5% toleransi kirim)
                 if ($isSisaan && $targetQtyMo > 0 && ($sisaQty <= ($targetQtyMo * 0.05))) {
@@ -380,7 +390,8 @@ class MarketingController extends Controller
                     'mo_po'             => $mo->no_po,
                     'target_qty_mo'     => round($targetQtyMo, 2),
                     'total_kirim_buyer' => round($totalKirim, 2),
-                    'sisa_qty'          => round(max(0, $targetQtyMo - $totalKirim), 2),
+                    'total_retur_buyer' => round($totalRetur, 2),
+                    'sisa_qty'          => round(max(0, $targetQtyMo - $totalKirim + $totalRetur), 2),
                     'wo_list'           => $woList,
                 ];
             })->filter()->values() : collect([]);
@@ -457,6 +468,15 @@ class MarketingController extends Controller
             ->groupBy('k.mo_id')
             ->select('k.mo_id', \DB::raw('SUM(i.qty) as total_kirim'))
             ->pluck('total_kirim', 'k.mo_id');
+
+        // Ambil data retur dari pengiriman buyer (gudang jadi) per MO, menambah sisa qty
+        $returByMo = \DB::table('trn_retur_buyer as r')
+            ->join('trn_retur_buyer_item as ri', 'ri.retur_buyer_id', '=', 'r.id')
+            ->whereNotNull('r.mo_id')
+            ->where('r.jenis_gudang', 1)
+            ->groupBy('r.mo_id')
+            ->select('r.mo_id', \DB::raw('SUM(ri.qty) as total_retur'))
+            ->pluck('total_retur', 'r.mo_id');
 
         // Ambil qty per grade dari Inspecting (punya kartu proses printing)
         $qtySumByKartu = \DB::table('trn_inspecting as i')
@@ -589,8 +609,8 @@ class MarketingController extends Controller
         $gradeKeys = ['A','A+','A*','B','C','PK','Sample'];
 
         // Format hasil group per SC
-        $formatted = $scs->map(function ($sc) use ($qtySumByKartu, $qtyMklbj, $gradeKeys, $kirimByMo, $isSisaan) {
-            $moList = collect($sc->mo)->map(function ($mo) use ($qtySumByKartu, $qtyMklbj, $gradeKeys, $kirimByMo, $isSisaan) {
+        $formatted = $scs->map(function ($sc) use ($qtySumByKartu, $qtyMklbj, $gradeKeys, $kirimByMo, $returByMo, $isSisaan) {
+            $moList = collect($sc->mo)->map(function ($mo) use ($qtySumByKartu, $qtyMklbj, $gradeKeys, $kirimByMo, $returByMo, $isSisaan) {
                 // Perhitungan Qty MO target (Yard / Meter)
                 $totalBatchMo = collect($mo->wo)->flatMap(function ($w) {
                     return $w->woColor ?? [];
@@ -604,7 +624,8 @@ class MarketingController extends Controller
                     $targetQtyMo *= 1.093613298;
                 }
                 $totalKirim = (float) ($kirimByMo->get($mo->id, 0));
-                $sisaQty = $targetQtyMo - $totalKirim;
+                $totalRetur = (float) ($returByMo->get($mo->id, 0));
+                $sisaQty = $targetQtyMo - $totalKirim + $totalRetur;
 
                 // Jika menu sisaan: jangan muncul sisaan jika toleransi sisa <= 5% dari target Qty MO (-5% toleransi kirim)
                 if ($isSisaan && $targetQtyMo > 0 && ($sisaQty <= ($targetQtyMo * 0.05))) {
@@ -775,7 +796,8 @@ class MarketingController extends Controller
                     'mo_po'             => $mo->no_po,
                     'target_qty_mo'     => round($targetQtyMo, 2),
                     'total_kirim_buyer' => round($totalKirim, 2),
-                    'sisa_qty'          => round(max(0, $targetQtyMo - $totalKirim), 2),
+                    'total_retur_buyer' => round($totalRetur, 2),
+                    'sisa_qty'          => round(max(0, $targetQtyMo - $totalKirim + $totalRetur), 2),
                     'wo_list'           => $woList,
                 ];
             })->filter()->values();
