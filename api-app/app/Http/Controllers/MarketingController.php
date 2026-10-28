@@ -1302,4 +1302,244 @@ class MarketingController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Get Sales Contract list filtered by type (export / lokal), date range, customer, marketing, status, etc.
+     * Includes aggregated totals (total meter, total yard, total amount) for the selected date range.
+     */
+    public function salesContract(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'tipe_kontrak' => 'nullable|numeric|in:1,2',
+            'start_date'   => 'nullable|date',
+            'end_date'     => 'nullable|date',
+            'customer_id'  => 'nullable|numeric',
+            'marketing_id' => 'nullable|numeric',
+            'status'       => 'nullable|numeric',
+            'sc_no'        => 'nullable|string',
+            'po_no'        => 'nullable|string',
+            'search'       => 'nullable|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Validasi gagal',
+                'errors'  => $validator->errors(),
+            ], 422);
+        }
+
+        $tipeKontrak = $request->input('tipe_kontrak');
+        $startDate   = $request->input('start_date');
+        $endDate     = $request->input('end_date');
+        $customerId  = $request->input('customer_id');
+        $marketingId = $request->input('marketing_id');
+        $status      = $request->input('status');
+        $scNo        = trim($request->input('sc_no', ''));
+        $poNo        = trim($request->input('po_no', ''));
+        $search      = trim($request->input('search', ''));
+
+        $query = Sc::with([
+            'customer:id,cust_no,name,telp,address,cp_name,cp_phone',
+            'marketing:id,username,full_name',
+            'scGreiges.greigeGroup',
+        ])
+        ->when($tipeKontrak, function ($q) use ($tipeKontrak) {
+            $q->where('tipe_kontrak', (int)$tipeKontrak);
+        })
+        ->when($startDate && $endDate, function ($q) use ($startDate, $endDate) {
+            $q->whereBetween('date', [$startDate, $endDate]);
+        })
+        ->when($startDate && !$endDate, function ($q) use ($startDate) {
+            $q->where('date', '>=', $startDate);
+        })
+        ->when(!$startDate && $endDate, function ($q) use ($endDate) {
+            $q->where('date', '<=', $endDate);
+        })
+        ->when($customerId, function ($q) use ($customerId) {
+            $q->where('cust_id', (int)$customerId);
+        })
+        ->when($marketingId, function ($q) use ($marketingId) {
+            $q->where('marketing_id', (int)$marketingId);
+        })
+        ->when($status !== null && $status !== '', function ($q) use ($status) {
+            $q->where('status', (int)$status);
+        })
+        ->when(!empty($scNo), function ($q) use ($scNo) {
+            $q->where('no', 'like', "%{$scNo}%");
+        })
+        ->when(!empty($poNo), function ($q) use ($poNo) {
+            $q->where('no_po', 'like', "%{$poNo}%");
+        })
+        ->when(!empty($search), function ($q) use ($search) {
+            $q->where(function ($sub) use ($search) {
+                $sub->where('no', 'like', "%{$search}%")
+                    ->orWhere('no_po', 'like', "%{$search}%")
+                    ->orWhere('destination', 'like', "%{$search}%")
+                    ->orWhere('consignee_name', 'like', "%{$search}%")
+                    ->orWhereHas('customer', function ($cq) use ($search) {
+                        $cq->where('name', 'like', "%{$search}%")
+                           ->orWhere('cust_no', 'like', "%{$search}%");
+                    });
+            });
+        })
+        ->orderBy('date', 'desc')
+        ->orderBy('id', 'desc');
+
+        $scRecords = $query->get();
+
+        $overallTotalSc = $scRecords->count();
+        $overallMeter = 0.0;
+        $overallYard = 0.0;
+        $overallAmountIdr = 0.0;
+        $overallAmountUsd = 0.0;
+        $statusCounts = [
+            'draft'     => 0,
+            'disetujui' => 0,
+            'closed'    => 0,
+            'batal'     => 0,
+            'other'     => 0,
+        ];
+
+        $formatted = $scRecords->map(function ($sc) use (
+            &$overallMeter,
+            &$overallYard,
+            &$overallAmountIdr,
+            &$overallAmountUsd,
+            &$statusCounts
+        ) {
+            $scMeter = 0.0;
+            $scYard = 0.0;
+            $scAmount = 0.0;
+
+            $currencyId = (int) ($sc->currency ?? 1);
+            $currencyCode = $currencyId === 2 ? 'USD' : 'IDR';
+            $currencySymbol = $currencyId === 2 ? '$' : 'Rp';
+
+            $items = collect($sc->scGreiges)->map(function ($g) use (
+                &$scMeter,
+                &$scYard,
+                &$scAmount
+            ) {
+                $meter = round((float) $g->getQtyFinish(), 2);
+                $yard = round((float) $g->getQtyFinishToYard(), 2);
+                $param = (int) ($g->price_param ?? 1); // 1 = Meter, 2 = Yard
+                $unitPrice = (float) ($g->unit_price ?? 0);
+
+                $lineAmount = ($param === 2) ? round($yard * $unitPrice, 2) : round($meter * $unitPrice, 2);
+
+                $scMeter += $meter;
+                $scYard += $yard;
+                $scAmount += $lineAmount;
+
+                return [
+                    'id'                => $g->id,
+                    'greige_group_id'   => $g->greige_group_id,
+                    'nama_kain'         => optional($g->greigeGroup)->nama_kain ?? ($g->artikel_sc ?: '-'),
+                    'artikel_sc'        => $g->artikel_sc,
+                    'merek'             => $g->merek ?: '-',
+                    'grade'             => $g->grade,
+                    'piece_length'      => $g->piece_length ?: '-',
+                    'unit_price'        => $unitPrice,
+                    'price_param'       => $param,
+                    'price_param_label' => $param === 2 ? 'Yard' : 'Meter',
+                    'qty_batch'         => (float) $g->qty,
+                    'qty_finish_meter'  => $meter,
+                    'qty_finish_yard'   => $yard,
+                    'total_price'       => $lineAmount,
+                    'note'              => $g->note,
+                    'closed'            => (bool) $g->closed,
+                ];
+            });
+
+            $overallMeter += $scMeter;
+            $overallYard += $scYard;
+            if ($currencyId === 2) {
+                $overallAmountUsd += $scAmount;
+            } else {
+                $overallAmountIdr += $scAmount;
+            }
+
+            $scStatus = (int) $sc->status;
+            switch ($scStatus) {
+                case 1:
+                    $statusCounts['draft']++;
+                    $statusLabel = 'Draft';
+                    $statusBadge = 'secondary';
+                    break;
+                case 5:
+                    $statusCounts['disetujui']++;
+                    $statusLabel = 'Disetujui';
+                    $statusBadge = 'success';
+                    break;
+                case 6:
+                    $statusCounts['batal']++;
+                    $statusLabel = 'Batal';
+                    $statusBadge = 'danger';
+                    break;
+                case 7:
+                    $statusCounts['closed']++;
+                    $statusLabel = 'Closed';
+                    $statusBadge = 'dark';
+                    break;
+                default:
+                    $statusCounts['other']++;
+                    $statusLabel = 'Status ' . $scStatus;
+                    $statusBadge = 'info';
+                    break;
+            }
+
+            $mktName = optional($sc->marketing)->full_name ?: (optional($sc->marketing)->username ?: '-');
+            $custName = optional($sc->customer)->name ?: '-';
+
+            return [
+                'id'                    => $sc->id,
+                'no'                    => $sc->no,
+                'tipe_kontrak'          => (int) $sc->tipe_kontrak,
+                'tipe_kontrak_label'    => ((int) $sc->tipe_kontrak === 2) ? 'Export' : 'Lokal',
+                'date'                  => $sc->date,
+                'no_po'                 => $sc->no_po ?: '-',
+                'cust_id'               => $sc->cust_id,
+                'customer_name'         => $custName,
+                'customer_code'         => optional($sc->customer)->cust_no ?: '-',
+                'marketing_id'          => $sc->marketing_id,
+                'marketing_name'        => $mktName,
+                'destination'           => $sc->destination ?: '-',
+                'delivery_date'         => $sc->delivery_date,
+                'due_date'              => $sc->due_date,
+                'pmt_term'              => $sc->pmt_term,
+                'pmt_method'            => $sc->pmt_method ?: '-',
+                'currency'              => $currencyId,
+                'currency_code'         => $currencyCode,
+                'currency_symbol'       => $currencySymbol,
+                'status'                => $scStatus,
+                'status_label'          => $statusLabel,
+                'status_badge'          => $statusBadge,
+                'consignee_name'        => $sc->consignee_name ?: '-',
+                'buyer_name_in_invoice' => $sc->buyer_name_in_invoice ?: '-',
+                'packing'               => $sc->packing ?: '',
+                'note'                  => $sc->note ?: '',
+                'total_meter'           => round($scMeter, 2),
+                'total_yard'            => round($scYard, 2),
+                'total_amount'          => round($scAmount, 2),
+                'items_count'           => $items->count(),
+                'items'                 => $items,
+            ];
+        });
+
+        return response()->json([
+            'status' => 'success',
+            'data'   => [
+                'scs'     => $formatted,
+                'summary' => [
+                    'total_sc'           => $overallTotalSc,
+                    'total_meter'        => round($overallMeter, 2),
+                    'total_yard'         => round($overallYard, 2),
+                    'total_amount_idr'   => round($overallAmountIdr, 2),
+                    'total_amount_usd'   => round($overallAmountUsd, 2),
+                    'status_counts'      => $statusCounts,
+                ],
+            ],
+        ]);
+    }
 }
