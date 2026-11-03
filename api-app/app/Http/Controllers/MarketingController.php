@@ -165,20 +165,21 @@ class MarketingController extends Controller
                 return $data;
             });
 
+        $moStatuses = $isSisaan ? [3] : [3, 5];
+        if (!empty($noWo) || !empty($poNo)) {
+            $moStatuses = [3, 5];
+        }
+
         // Ambil data SC dengan relasi MO, WO, proses
-        $scs = Sc::with([
-            'customer',
-            'marketing',
-            'mo' => function ($query) use ($poNo, $noWo, $woGreige) {
-                $query->where('status', 3)
+        $scs = Sc::whereHas('mo', function ($query) use ($poNo, $noWo, $woGreige, $moStatuses) {
+                $query->whereIn('status', $moStatuses)
                     ->where('process', 1)
                     ->when($poNo, function ($q) use ($poNo) {
                         $q->whereNotNull('no_po')
                         ->where('no_po', 'like', "%{$poNo}%");
                     })
-                    ->with([
-                        'scGreige.greigeGroup',
-                        'wo' => function ($woQuery) use ($noWo, $woGreige) {
+                    ->when($noWo || $woGreige, function ($mq) use ($noWo, $woGreige) {
+                        $mq->whereHas('wo', function ($woQuery) use ($noWo, $woGreige) {
                             $woQuery->when($noWo, function ($wq) use ($noWo) {
                                     $wq->whereNotNull('no')
                                     ->where('no', 'like', "%{$noWo}%");
@@ -187,32 +188,59 @@ class MarketingController extends Controller
                                     $wq->whereHas('greige', function ($gq) use ($woGreige) {
                                         $gq->whereRaw('LOWER(nama_kain) LIKE ?', ['%' . strtolower($woGreige) . '%']);
                                     });
-                                })
-                                ->with([
-                                    'greige',
-                                    'woColor.kartuProsesDyeings.kartuProsesDyeingItem',
-                                    'woColor.kartuProsesDyeings.kartuProsesDyeingProcesses.processDyeing',
-                                    'woColor.moColor',
-                                ]);
-                        }
-                    ]);
-            }
-        ])
-        ->when($customerId, function ($q) use ($customerId) {
-            $q->where('cust_id', $customerId);
-        })
-        ->when($marketingId, function ($q) use ($marketingId) {
-            $q->where('marketing_id', $marketingId);
-        })
-        ->whereBetween('date', [$startDate, $endDate])
-        ->get();
+                                });
+                        });
+                    });
+            })
+            ->with([
+                'customer',
+                'marketing',
+                'mo' => function ($query) use ($poNo, $noWo, $woGreige, $moStatuses) {
+                    $query->whereIn('status', $moStatuses)
+                        ->where('process', 1)
+                        ->when($poNo, function ($q) use ($poNo) {
+                            $q->whereNotNull('no_po')
+                            ->where('no_po', 'like', "%{$poNo}%");
+                        })
+                        ->with([
+                            'scGreige.greigeGroup',
+                            'wo' => function ($woQuery) use ($noWo, $woGreige) {
+                                $woQuery->when($noWo, function ($wq) use ($noWo) {
+                                        $wq->whereNotNull('no')
+                                        ->where('no', 'like', "%{$noWo}%");
+                                    })
+                                    ->when($woGreige, function ($wq) use ($woGreige) {
+                                        $wq->whereHas('greige', function ($gq) use ($woGreige) {
+                                            $gq->whereRaw('LOWER(nama_kain) LIKE ?', ['%' . strtolower($woGreige) . '%']);
+                                        });
+                                    })
+                                    ->with([
+                                        'greige',
+                                        'woColor.kartuProsesDyeings.kartuProsesDyeingItem',
+                                        'woColor.kartuProsesDyeings.kartuProsesDyeingProcesses.processDyeing',
+                                        'woColor.moColor',
+                                    ]);
+                            }
+                        ]);
+                }
+            ])
+            ->when($customerId, function ($q) use ($customerId) {
+                $q->where('cust_id', $customerId);
+            })
+            ->when($marketingId, function ($q) use ($marketingId) {
+                $q->where('marketing_id', $marketingId);
+            })
+            ->when(empty($noWo) && empty($poNo), function ($q) use ($startDate, $endDate) {
+                $q->whereBetween('date', [$startDate, $endDate]);
+            })
+            ->get();
 
         // canonical grade keys
         $gradeKeys = ['A','A+','A*','B','C','PK','Sample'];
 
         // Format hasil group per SC
-        $formatted = $scs->map(function ($sc) use ($qtySumByKartu, $qtyMklbj, $gradeKeys, $kirimByMo, $returByMo, $isSisaan) {
-            $moList = $sc->mo ? $sc->mo->map(function ($mo) use ($qtySumByKartu, $qtyMklbj, $gradeKeys, $kirimByMo, $returByMo, $isSisaan) {
+        $formatted = $scs->map(function ($sc) use ($qtySumByKartu, $qtyMklbj, $gradeKeys, $kirimByMo, $returByMo, $isSisaan, $noWo, $woGreige) {
+            $moList = $sc->mo ? $sc->mo->map(function ($mo) use ($qtySumByKartu, $qtyMklbj, $gradeKeys, $kirimByMo, $returByMo, $isSisaan, $noWo, $woGreige) {
                 // Perhitungan Qty MO target (Yard / Meter)
                 $totalBatchMo = collect($mo->wo)->flatMap(function ($w) {
                     return $w->woColor ?? [];
@@ -383,6 +411,10 @@ class MarketingController extends Controller
                     ];
                 }) : [];
 
+                if (($noWo || $woGreige) && count($woList) === 0) {
+                    return null;
+                }
+
                 return [
                     'mo_id'             => $mo->id,
                     'mo_no'             => $mo->no,
@@ -396,7 +428,7 @@ class MarketingController extends Controller
                 ];
             })->filter()->values() : collect([]);
 
-            if ($isSisaan && $moList->isEmpty()) {
+            if ($moList->isEmpty()) {
                 return null;
             }
 
@@ -544,31 +576,38 @@ class MarketingController extends Controller
                 return $data;
             });
 
+        $moStatuses = $isSisaan ? [3] : [3, 5];
+        if (!empty($noWo) || !empty($poNo)) {
+            $moStatuses = [3, 5];
+        }
+
         // Ambil data SC dengan relasi MO (process 2), WO, proses
-        $scs = Sc::whereHas('mo', function ($query) use ($poNo, $noWo, $woGreige) {
-                $query->where('status', 3)
+        $scs = Sc::whereHas('mo', function ($query) use ($poNo, $noWo, $woGreige, $moStatuses) {
+                $query->whereIn('status', $moStatuses)
                     ->where('process', 2)
                     ->when($poNo, function ($q) use ($poNo) {
                         $q->whereNotNull('no_po')
                         ->where('no_po', 'like', "%{$poNo}%");
                     })
-                    ->whereHas('wo', function ($woQuery) use ($noWo, $woGreige) {
-                        $woQuery->when($noWo, function ($wq) use ($noWo) {
-                                $wq->whereNotNull('no')
-                                ->where('no', 'like', "%{$noWo}%");
-                            })
-                            ->when($woGreige, function ($wq) use ($woGreige) {
-                                $wq->whereHas('greige', function ($gq) use ($woGreige) {
-                                    $gq->whereRaw('LOWER(nama_kain) LIKE ?', ['%' . strtolower($woGreige) . '%']);
+                    ->when($noWo || $woGreige, function ($mq) use ($noWo, $woGreige) {
+                        $mq->whereHas('wo', function ($woQuery) use ($noWo, $woGreige) {
+                            $woQuery->when($noWo, function ($wq) use ($noWo) {
+                                    $wq->whereNotNull('no')
+                                    ->where('no', 'like', "%{$noWo}%");
+                                })
+                                ->when($woGreige, function ($wq) use ($woGreige) {
+                                    $wq->whereHas('greige', function ($gq) use ($woGreige) {
+                                        $gq->whereRaw('LOWER(nama_kain) LIKE ?', ['%' . strtolower($woGreige) . '%']);
+                                    });
                                 });
-                            });
+                        });
                     });
             })
             ->with([
                 'customer',
                 'marketing',
-                'mo' => function ($query) use ($poNo, $noWo, $woGreige) {
-                    $query->where('status', 3)
+                'mo' => function ($query) use ($poNo, $noWo, $woGreige, $moStatuses) {
+                    $query->whereIn('status', $moStatuses)
                         ->where('process', 2)
                         ->when($poNo, function ($q) use ($poNo) {
                             $q->whereNotNull('no_po')
@@ -602,15 +641,17 @@ class MarketingController extends Controller
             ->when($marketingId, function ($q) use ($marketingId) {
                 $q->where('marketing_id', $marketingId);
             })
-            ->whereBetween('date', [$startDate, $endDate])
+            ->when(empty($noWo) && empty($poNo), function ($q) use ($startDate, $endDate) {
+                $q->whereBetween('date', [$startDate, $endDate]);
+            })
             ->get();
 
         // canonical grade keys
         $gradeKeys = ['A','A+','A*','B','C','PK','Sample'];
 
         // Format hasil group per SC
-        $formatted = $scs->map(function ($sc) use ($qtySumByKartu, $qtyMklbj, $gradeKeys, $kirimByMo, $returByMo, $isSisaan) {
-            $moList = collect($sc->mo)->map(function ($mo) use ($qtySumByKartu, $qtyMklbj, $gradeKeys, $kirimByMo, $returByMo, $isSisaan) {
+        $formatted = $scs->map(function ($sc) use ($qtySumByKartu, $qtyMklbj, $gradeKeys, $kirimByMo, $returByMo, $isSisaan, $noWo, $woGreige) {
+            $moList = collect($sc->mo)->map(function ($mo) use ($qtySumByKartu, $qtyMklbj, $gradeKeys, $kirimByMo, $returByMo, $isSisaan, $noWo, $woGreige) {
                 // Perhitungan Qty MO target (Yard / Meter)
                 $totalBatchMo = collect($mo->wo)->flatMap(function ($w) {
                     return $w->woColor ?? [];
@@ -789,6 +830,11 @@ class MarketingController extends Controller
                     return count($wo['wo_colors']) > 0;
                 })->values();
 
+                // Jika sedang filter no_wo / wo_greige, dan woList kosong, skip MO ini
+                if (($noWo || $woGreige) && count($woList) === 0) {
+                    return null;
+                }
+
                 return [
                     'mo_id'             => $mo->id,
                     'mo_no'             => $mo->no,
@@ -802,7 +848,7 @@ class MarketingController extends Controller
                 ];
             })->filter()->values();
 
-            if ($isSisaan && $moList->isEmpty()) {
+            if ($moList->isEmpty()) {
                 return null;
             }
 
@@ -936,7 +982,7 @@ class MarketingController extends Controller
         $scs = Sc::with([
             'scGreiges.greigeGroup',
             'mo' => function ($query) use ($poNo, $noWo, $woGreige) {
-                $query->where('status', 3)
+                $query->whereIn('status', [3, 5])
                     ->whereIn('process', [1, 2])
                     ->when($poNo, function ($q) use ($poNo) {
                         $q->where('no_po', 'like', '%'.$poNo.'%');
