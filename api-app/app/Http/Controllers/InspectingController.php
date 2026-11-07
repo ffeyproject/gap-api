@@ -22,6 +22,52 @@ class InspectingController extends Controller
 {
     //
 
+    public function search(Request $request)
+    {
+        try {
+            $jenis = $request->input('jenis_process');
+            $q = trim((string) $request->input('search'));
+
+            if ($q === '' || !in_array($jenis, ['dyeing', 'printing', 'mkl-bj'])) {
+                return response()->json(['success' => true, 'data' => []]);
+            }
+
+            if ($jenis === 'mkl-bj') {
+                $query = InspectingMklbj::with(['wo', 'woColor.moColor'])
+                    ->where(function ($w) use ($q) {
+                        // id bertipe integer di Postgres: hanya cocokkan jika input numerik
+                        $w->when(ctype_digit($q), function ($c) use ($q) {
+                            $c->orWhere('id', (int) $q);
+                        })
+                            ->orWhere('no_lot', 'like', "%{$q}%")
+                            ->orWhereHas('wo', function ($x) use ($q) {
+                                $x->where('no', 'like', "%{$q}%");
+                            });
+                    });
+            } else {
+                $relasi = $jenis === 'dyeing' ? 'kartuProcessDyeing' : 'kartuProcessPrinting';
+                $query = Inspecting::with(['wo', 'kartuProcessDyeing', 'kartuProcessPrinting'])
+                    ->where('jenis_process', $jenis === 'dyeing' ? 1 : 2)
+                    ->where(function ($w) use ($q, $relasi) {
+                        // id bertipe integer di Postgres: hanya cocokkan jika input numerik
+                        $w->when(ctype_digit($q), function ($c) use ($q) {
+                            $c->orWhere('id', (int) $q);
+                        })
+                            ->orWhereHas($relasi, function ($x) use ($q) {
+                                $x->where('no', 'like', "%{$q}%");
+                            });
+                    });
+            }
+
+            $data = $query->orderBy('created_at', 'desc')->limit(20)->get();
+
+            return response()->json(['success' => true, 'data' => $data]);
+        } catch (\Exception $e) {
+            Log::error('Search inspecting error: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Terjadi kesalahan'], 500);
+        }
+    }
+
     public function index($id)
     {
         try {

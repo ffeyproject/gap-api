@@ -78,6 +78,7 @@ Route::prefix('v1')->group(function () {
 
     // Inspecting Routes (Authenticated)
     Route::group(['prefix' => 'inspecting', 'middleware' => 'api'], function () {
+        Route::get('search-inspecting', 'InspectingController@search');
         Route::get('get-inspecting/{id}', 'InspectingController@index');
         Route::get('get-inspecting-mkl-bj/{id}', 'InspectingController@indexMklbj');
         Route::put('get-inspecting/update/{id}', 'InspectingController@update');
