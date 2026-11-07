@@ -1306,6 +1306,7 @@ public function store(Request $request)
                 'sc_greige_id'   => 'required|integer',
                 'wo_color_id'    => 'required|integer',
                 'kartu_proses_id'=> 'required|integer',
+                'jenis_process'  => 'nullable|in:dyeing,printing',
 
             ]);
 
@@ -1318,8 +1319,23 @@ public function store(Request $request)
             }
 
             $validated = $validator->validated();
+            $isPrinting = ($validated['jenis_process'] ?? 'dyeing') === 'printing';
 
-            $kartuProses = KartuProsesDyeing::find($id);
+            // Warna harus milik WO yang dipilih
+            $woColorValid = \App\WoColor::where('id', $validated['wo_color_id'])
+                ->where('wo_id', $validated['wo_id'])
+                ->exists();
+            if (!$woColorValid) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Warna tidak sesuai dengan WO yang dipilih'
+                ], 422);
+            }
+
+            // Kartu printing disimpan di tabel yang berbeda dengan dyeing
+            $kartuProses = $isPrinting
+                ? KartuProsesPrinting::find($id)
+                : KartuProsesDyeing::find($id);
             if (!$kartuProses) {
                 return response()->json([
                     'success' => false,
@@ -1336,7 +1352,7 @@ public function store(Request $request)
                 'kartu_proses_id' => $validated['kartu_proses_id'],
             ]);
 
-            if ($request->has('items') && is_array($request->items)) {
+            if (!$isPrinting && $request->has('items') && is_array($request->items)) {
                 foreach ($request->items as $item) {
                     KartuProsesDyeingItem::updateOrCreate(
                         [
@@ -1361,7 +1377,7 @@ public function store(Request $request)
             return response()->json([
                 'success' => true,
                 'message' => 'Data Kartu Proses berhasil diperbarui',
-                'data'    => $kartuProses->load('kartuProsesDyeingItem')
+                'data'    => $isPrinting ? $kartuProses : $kartuProses->load('kartuProsesDyeingItem')
             ]);
         } catch (\Exception $e) {
             \Log::error("Error updateKartuProsesDyeing: ".$e->getMessage());
