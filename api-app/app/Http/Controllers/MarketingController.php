@@ -1240,15 +1240,7 @@ class MarketingController extends Controller
             $mo->updated_by = (int)$user->id;
             $mo->save();
 
-            // Update child trn_wo (status 7 = Closed) via DB Query Builder to avoid timestamp format mismatch
-            DB::table('trn_wo')->where('mo_id', $mo->id)->update([
-                'status'      => 7,
-                'closed_at'   => $now,
-                'closed_by'   => (int)$user->id,
-                'closed_note' => $note,
-                'updated_at'  => $now,
-                'updated_by'  => (int)$user->id,
-            ]);
+            // Hanya update trn_mo saja (tidak mengubah status trn_wo)
 
             DB::commit();
 
@@ -1325,14 +1317,7 @@ class MarketingController extends Controller
             $mo->updated_by = (int)$user->id;
             $mo->save();
 
-            DB::table('trn_wo')->where('mo_id', $mo->id)->update([
-                'status'      => 5, // active in trn_wo
-                'closed_at'   => null,
-                'closed_by'   => null,
-                'closed_note' => null,
-                'updated_at'  => $now,
-                'updated_by'  => (int)$user->id,
-            ]);
+            // Hanya update trn_mo saja (tidak mengubah status trn_wo)
 
             DB::commit();
 
