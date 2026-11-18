@@ -86,23 +86,6 @@ class MarketingController extends Controller
             ], 422);
         }
 
-        // Ambil data pengiriman buyer per MO
-        $kirimByMo = \DB::table('trn_kirim_buyer as k')
-            ->join('trn_kirim_buyer_item as i', 'i.kirim_buyer_id', '=', 'k.id')
-            ->whereNotNull('k.mo_id')
-            ->groupBy('k.mo_id')
-            ->select('k.mo_id', \DB::raw('SUM(i.qty) as total_kirim'))
-            ->pluck('total_kirim', 'k.mo_id');
-
-        // Ambil data retur dari pengiriman buyer (gudang jadi) per MO, menambah sisa qty
-        $returByMo = \DB::table('trn_retur_buyer as r')
-            ->join('trn_retur_buyer_item as ri', 'ri.retur_buyer_id', '=', 'r.id')
-            ->whereNotNull('r.mo_id')
-            ->where('r.jenis_gudang', 1)
-            ->groupBy('r.mo_id')
-            ->select('r.mo_id', \DB::raw('SUM(ri.qty) as total_retur'))
-            ->pluck('total_retur', 'r.mo_id');
-
         // Ambil qty per grade dari Inspecting (punya kartu proses)
         $qtySumByKartu = \DB::table('trn_inspecting as i')
             ->join('inspecting_item as ii', 'ii.inspecting_id', '=', 'i.id')
@@ -235,12 +218,40 @@ class MarketingController extends Controller
             })
             ->get();
 
+        $moIds = $scs->pluck('mo')->flatten()->pluck('id')->filter()->unique()->values()->all();
+
+        // Ambil data pengiriman buyer per MO
+        $kirimByMo = empty($moIds) ? collect([]) : \DB::table('trn_kirim_buyer as k')
+            ->join('trn_kirim_buyer_item as i', 'i.kirim_buyer_id', '=', 'k.id')
+            ->whereIn('k.mo_id', $moIds)
+            ->groupBy('k.mo_id')
+            ->select('k.mo_id', \DB::raw('SUM(i.qty) as total_kirim'))
+            ->pluck('total_kirim', 'k.mo_id');
+
+        // Ambil data retur dari pengiriman buyer (gudang jadi) per MO, menambah sisa qty
+        $returByMo = empty($moIds) ? collect([]) : \DB::table('trn_retur_buyer as r')
+            ->join('trn_retur_buyer_item as ri', 'ri.retur_buyer_id', '=', 'r.id')
+            ->whereIn('r.mo_id', $moIds)
+            ->where('r.jenis_gudang', 1)
+            ->groupBy('r.mo_id')
+            ->select('r.mo_id', \DB::raw('SUM(ri.qty) as total_retur'))
+            ->pluck('total_retur', 'r.mo_id');
+
+        // Ambil data mutasi ex finish (status = 5) per MO
+        $mutasiEfByMo = empty($moIds) ? collect([]) : \DB::table('trn_gudang_jadi as gj')
+            ->join('trn_wo as wo', 'wo.id', '=', 'gj.wo_id')
+            ->where('gj.status', 5)
+            ->whereIn('wo.mo_id', $moIds)
+            ->groupBy('wo.mo_id')
+            ->select('wo.mo_id', \DB::raw('SUM(gj.qty) as total_mutasi_ef'))
+            ->pluck('total_mutasi_ef', 'wo.mo_id');
+
         // canonical grade keys
         $gradeKeys = ['A','A+','A*','B','C','PK','Sample'];
 
         // Format hasil group per SC
-        $formatted = $scs->map(function ($sc) use ($qtySumByKartu, $qtyMklbj, $gradeKeys, $kirimByMo, $returByMo, $isSisaan, $noWo, $woGreige) {
-            $moList = $sc->mo ? $sc->mo->map(function ($mo) use ($qtySumByKartu, $qtyMklbj, $gradeKeys, $kirimByMo, $returByMo, $isSisaan, $noWo, $woGreige) {
+        $formatted = $scs->map(function ($sc) use ($qtySumByKartu, $qtyMklbj, $gradeKeys, $kirimByMo, $returByMo, $mutasiEfByMo, $isSisaan, $noWo, $woGreige) {
+            $moList = $sc->mo ? $sc->mo->map(function ($mo) use ($qtySumByKartu, $qtyMklbj, $gradeKeys, $kirimByMo, $returByMo, $mutasiEfByMo, $isSisaan, $noWo, $woGreige) {
                 // Perhitungan Qty MO target (Yard / Meter)
                 $totalBatchMo = collect($mo->wo)->flatMap(function ($w) {
                     return $w->woColor ?? [];
@@ -253,7 +264,9 @@ class MarketingController extends Controller
                 if ($priceParam === 2) {
                     $targetQtyMo *= 1.093613298;
                 }
-                $totalKirim = (float) ($kirimByMo->get($mo->id, 0));
+                $kirimBuyer = (float) ($kirimByMo->get($mo->id, 0));
+                $mutasiEf   = (float) ($mutasiEfByMo->get($mo->id, 0));
+                $totalKirim = $kirimBuyer + $mutasiEf;
                 $totalRetur = (float) ($returByMo->get($mo->id, 0));
                 $sisaQty = $targetQtyMo - $totalKirim + $totalRetur;
 
@@ -422,6 +435,8 @@ class MarketingController extends Controller
                     'mo_po'             => $mo->no_po,
                     'target_qty_mo'     => round($targetQtyMo, 2),
                     'total_kirim_buyer' => round($totalKirim, 2),
+                    'total_kirim_murni' => round($kirimBuyer, 2),
+                    'total_mutasi_ef'   => round($mutasiEf, 2),
                     'total_retur_buyer' => round($totalRetur, 2),
                     'sisa_qty'          => round(max(0, $targetQtyMo - $totalKirim + $totalRetur), 2),
                     'wo_list'           => $woList,
@@ -492,23 +507,6 @@ class MarketingController extends Controller
                 'errors'  => ['customer_id' => ['Pilih Customer atau Marketing terlebih dahulu']],
             ], 422);
         }
-
-        // Ambil data pengiriman buyer per MO
-        $kirimByMo = \DB::table('trn_kirim_buyer as k')
-            ->join('trn_kirim_buyer_item as i', 'i.kirim_buyer_id', '=', 'k.id')
-            ->whereNotNull('k.mo_id')
-            ->groupBy('k.mo_id')
-            ->select('k.mo_id', \DB::raw('SUM(i.qty) as total_kirim'))
-            ->pluck('total_kirim', 'k.mo_id');
-
-        // Ambil data retur dari pengiriman buyer (gudang jadi) per MO, menambah sisa qty
-        $returByMo = \DB::table('trn_retur_buyer as r')
-            ->join('trn_retur_buyer_item as ri', 'ri.retur_buyer_id', '=', 'r.id')
-            ->whereNotNull('r.mo_id')
-            ->where('r.jenis_gudang', 1)
-            ->groupBy('r.mo_id')
-            ->select('r.mo_id', \DB::raw('SUM(ri.qty) as total_retur'))
-            ->pluck('total_retur', 'r.mo_id');
 
         // Ambil qty per grade dari Inspecting (punya kartu proses printing)
         $qtySumByKartu = \DB::table('trn_inspecting as i')
@@ -646,12 +644,40 @@ class MarketingController extends Controller
             })
             ->get();
 
+        $moIds = $scs->pluck('mo')->flatten()->pluck('id')->filter()->unique()->values()->all();
+
+        // Ambil data pengiriman buyer per MO
+        $kirimByMo = empty($moIds) ? collect([]) : \DB::table('trn_kirim_buyer as k')
+            ->join('trn_kirim_buyer_item as i', 'i.kirim_buyer_id', '=', 'k.id')
+            ->whereIn('k.mo_id', $moIds)
+            ->groupBy('k.mo_id')
+            ->select('k.mo_id', \DB::raw('SUM(i.qty) as total_kirim'))
+            ->pluck('total_kirim', 'k.mo_id');
+
+        // Ambil data retur dari pengiriman buyer (gudang jadi) per MO, menambah sisa qty
+        $returByMo = empty($moIds) ? collect([]) : \DB::table('trn_retur_buyer as r')
+            ->join('trn_retur_buyer_item as ri', 'ri.retur_buyer_id', '=', 'r.id')
+            ->whereIn('r.mo_id', $moIds)
+            ->where('r.jenis_gudang', 1)
+            ->groupBy('r.mo_id')
+            ->select('r.mo_id', \DB::raw('SUM(ri.qty) as total_retur'))
+            ->pluck('total_retur', 'r.mo_id');
+
+        // Ambil data mutasi ex finish (status = 5) per MO
+        $mutasiEfByMo = empty($moIds) ? collect([]) : \DB::table('trn_gudang_jadi as gj')
+            ->join('trn_wo as wo', 'wo.id', '=', 'gj.wo_id')
+            ->where('gj.status', 5)
+            ->whereIn('wo.mo_id', $moIds)
+            ->groupBy('wo.mo_id')
+            ->select('wo.mo_id', \DB::raw('SUM(gj.qty) as total_mutasi_ef'))
+            ->pluck('total_mutasi_ef', 'wo.mo_id');
+
         // canonical grade keys
         $gradeKeys = ['A','A+','A*','B','C','PK','Sample'];
 
         // Format hasil group per SC
-        $formatted = $scs->map(function ($sc) use ($qtySumByKartu, $qtyMklbj, $gradeKeys, $kirimByMo, $returByMo, $isSisaan, $noWo, $woGreige) {
-            $moList = collect($sc->mo)->map(function ($mo) use ($qtySumByKartu, $qtyMklbj, $gradeKeys, $kirimByMo, $returByMo, $isSisaan, $noWo, $woGreige) {
+        $formatted = $scs->map(function ($sc) use ($qtySumByKartu, $qtyMklbj, $gradeKeys, $kirimByMo, $returByMo, $mutasiEfByMo, $isSisaan, $noWo, $woGreige) {
+            $moList = collect($sc->mo)->map(function ($mo) use ($qtySumByKartu, $qtyMklbj, $gradeKeys, $kirimByMo, $returByMo, $mutasiEfByMo, $isSisaan, $noWo, $woGreige) {
                 // Perhitungan Qty MO target (Yard / Meter)
                 $totalBatchMo = collect($mo->wo)->flatMap(function ($w) {
                     return $w->woColor ?? [];
@@ -664,7 +690,9 @@ class MarketingController extends Controller
                 if ($priceParam === 2) {
                     $targetQtyMo *= 1.093613298;
                 }
-                $totalKirim = (float) ($kirimByMo->get($mo->id, 0));
+                $kirimBuyer = (float) ($kirimByMo->get($mo->id, 0));
+                $mutasiEf   = (float) ($mutasiEfByMo->get($mo->id, 0));
+                $totalKirim = $kirimBuyer + $mutasiEf;
                 $totalRetur = (float) ($returByMo->get($mo->id, 0));
                 $sisaQty = $targetQtyMo - $totalKirim + $totalRetur;
 
@@ -842,6 +870,8 @@ class MarketingController extends Controller
                     'mo_po'             => $mo->no_po,
                     'target_qty_mo'     => round($targetQtyMo, 2),
                     'total_kirim_buyer' => round($totalKirim, 2),
+                    'total_kirim_murni' => round($kirimBuyer, 2),
+                    'total_mutasi_ef'   => round($mutasiEf, 2),
                     'total_retur_buyer' => round($totalRetur, 2),
                     'sisa_qty'          => round(max(0, $targetQtyMo - $totalKirim + $totalRetur), 2),
                     'wo_list'           => $woList,
