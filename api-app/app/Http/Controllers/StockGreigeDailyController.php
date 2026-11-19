@@ -118,6 +118,19 @@ class StockGreigeDailyController extends Controller
             $query->whereIn('greige_id', $matchingGreigeIds);
         }
 
+        // Jika hanya stok masuk aktif, filter di level query database sebelum paginate
+        if ($onlyIncoming) {
+            $query->whereExists(function ($sub) {
+                $sub->select(DB::raw(1))
+                    ->from('trn_stock_greige as tsg')
+                    ->whereColumn('tsg.date', 'trn_stock_greige_daily.date')
+                    ->whereColumn('tsg.greige_id', 'trn_stock_greige_daily.greige_id')
+                    ->whereColumn('tsg.asal_greige', 'trn_stock_greige_daily.asal_greige')
+                    ->where('tsg.jenis_gudang', StockGreigeDaily::JG_FRESH)
+                    ->where('tsg.status', StockGreigeDaily::STATUS_VALID);
+            });
+        }
+
         $query->orderBy('date', 'desc')
               ->orderBy('greige_id', 'asc')
               ->orderBy('asal_greige', 'asc');
@@ -143,13 +156,6 @@ class StockGreigeDailyController extends Controller
         $totalKeluarM = (float)round(abs($records->where('diff_panjang', '<', 0)->sum('diff_panjang')), 2);
         $totalKeluarRoll = (int)abs($records->where('diff_roll', '<', 0)->sum('diff_roll'));
         $totalMotifMasuk = (int)$records->where('is_stock_masuk', true)->count();
-
-        // Jika filter hanya stok masuk aktif
-        if ($onlyIncoming) {
-            $records = $records->filter(function ($item) {
-                return $item->is_stock_masuk;
-            })->values();
-        }
 
         $maxCreated = (int)StockGreigeDaily::max('created_at');
         $maxUpdated = (int)StockGreigeDaily::max('updated_at');
@@ -451,12 +457,43 @@ class StockGreigeDailyController extends Controller
             })->values();
         }
 
+        $monthStart = $date ? substr($date, 0, 7) . '-01' : null;
+        $monthEnd = $date ? date('Y-m-t', strtotime($date)) : null;
+        $monthlyIncoming = [];
+
+        if ($monthStart && $monthEnd) {
+            $monthlyIncoming = DB::table('trn_stock_greige')
+                ->where('greige_id', $model->greige_id)
+                ->where('asal_greige', $model->asal_greige)
+                ->whereBetween('date', [$monthStart, $monthEnd])
+                ->where('jenis_gudang', StockGreigeDaily::JG_FRESH)
+                ->where('status', StockGreigeDaily::STATUS_VALID)
+                ->select([
+                    'date',
+                    DB::raw('COUNT(id) as total_roll'),
+                    DB::raw('ROUND(SUM(panjang_m)::numeric, 2) as total_panjang'),
+                    DB::raw('MIN(no_document) as no_document'),
+                ])
+                ->groupBy('date')
+                ->orderBy('date', 'desc')
+                ->get()
+                ->map(function ($row) {
+                    return [
+                        'date' => is_string($row->date) ? substr($row->date, 0, 10) : (string)$row->date,
+                        'total_roll' => (int)$row->total_roll,
+                        'total_panjang' => (float)$row->total_panjang,
+                        'no_document' => $row->no_document ?: '-',
+                    ];
+                });
+        }
+
         return response()->json([
             'success' => true,
             'status' => 'success',
             'data' => $model,
             'incoming_rolls' => $incomingRolls,
             'hourly_summary' => $hourlySummary,
+            'monthly_incoming' => $monthlyIncoming,
         ]);
     }
 
