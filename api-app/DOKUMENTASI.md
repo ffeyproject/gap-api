@@ -108,9 +108,9 @@ Semua path di bawah relatif terhadap `/api/v1`. Parameter GET dikirim sebagai qu
 
 | Method | Path | Keterangan |
 |---|---|---|
-| GET | `/wo/get-wo` | Daftar WO |
-| GET | `/wo/search-wo?no=` | Cari WO |
-| PUT | `/wo/ganti-wo/{id}` | Ganti WO pada kartu proses dyeing (body `items`) |
+| GET | `/wo/get-wo` | Mengambil daftar 300 WO aktif terbaru (`status = 5`, proses dyeing `process = 1`) beserta relasi SC, MO, Greige, Customer, dan WO Color |
+| GET | `/wo/search-wo?no=` | Cari WO berdasarkan nomor WO (`no`) untuk order dyeing & printing (`process` in 1, 2; `jenis_order` in 1, 2, 3; `status = 5`, limit 100). Mengembalikan detail SC Greige dan varian `mo_colors` (`wo_color_id`, `mo_color_id`, `color`) |
+| PUT | `/wo/ganti-wo/{id}` | Mengganti WO, MO, SC, dan varian warna pada kartu proses dyeing atau printing. `{id}` adalah ID kartu proses. Body JSON: `wo_id`*, `mo_id`*, `sc_id`*, `sc_greige_id`*, `wo_color_id`*, `kartu_proses_id`*, `jenis_process` (`'dyeing'` atau `'printing'`, default: `'dyeing'`) |
 
 ### 5.4 Kartu Proses
 
@@ -131,31 +131,32 @@ Pembuatan data:
 | Method | Path | Keterangan |
 |---|---|---|
 | POST | `/inspecting/store-inspecting` | Buat inspecting dyeing dari kartu. Body: `id_kartu`*, `no_lot`*, `unit`*, `jenis_inspek`*, `inspect_result`* (array), `no_memo`, `note`, `inspection_table` |
-| POST | `/inspecting/store-mkl-bj-inspecting` | Sama, untuk MKL/BJ |
-| POST | `/inspecting/store-printing-inspecting` | Sama, untuk printing |
-| POST | `/inspecting/add-inspect-result` | Tambah item. Body: `inspecting_id`*, `qty`*, `grade`*, `join_piece`, `lot_no`, `defect` (array), `stock_id`, `qty_bit`, `gsm_item` |
-| POST | `/inspecting/add-inspect-mklbj-result` | Tambah item untuk MKL/BJ |
-| PUT | `/inspecting/inspecting-item/update/{id}` | Ubah item inspecting |
+| POST | `/inspecting/store-mkl-bj-inspecting` | Buat inspecting MKL/BJ. Body: `wo_id`*, `color`* (`wo_color_id`), `no_lot`*, `unit`*, `jenis_inspek`*, `jenis_makloon`*, `inspect_result`* (array), `no_memo`, `note`, `inspection_table` |
+| POST | `/inspecting/store-printing-inspecting` | Buat inspecting printing dari kartu. Body: `id_kartu`*, `no_lot`*, `unit`*, `jenis_inspek`*, `inspect_result`* (array), `no_memo`, `inspection_table` |
+| POST | `/inspecting/add-inspect-result` | Tambah item inspecting. Body: `inspecting_id`*, `qty`*, `grade`*, `join_piece`, `lot_no`, `stock_id`, `qty_bit`, `gsm_item`, `defect` (array: `mst_kode_defect_id`, ...) |
+| POST | `/inspecting/add-inspect-mklbj-result` | Tambah item inspecting MKL/BJ. Body: `inspecting_id`*, `qty`*, `grade`*, `join_piece`, `lot_no`, `gsm_item`, `qty_bit`, `defect` (array: `mst_kode_defect_id`, `meterage`, `point`) |
 
-(* = wajib.) `no_urut` item dihitung otomatis; item grade 5 tidak mendapat nomor urut.
+(* = wajib.) `no_urut` item dihitung otomatis; item grade 5 (sample) tidak mendapat nomor urut.
 
 Baca / ubah / hapus:
 
 | Method | Path | Keterangan |
 |---|---|---|
-| GET | `/inspecting/search-inspecting?jenis_process=&search=` | Cari data inspecting |
-| GET | `/inspecting/get-inspecting/{id}` | Detail inspecting |
-| GET | `/inspecting/get-inspecting-mkl-bj/{id}` | Detail inspecting MKL/BJ |
-| PUT | `/inspecting/get-inspecting/update/{id}` | Update |
-| PUT | `/inspecting/kalkukasi/{id}` | Hitung ulang (kalkulasi) |
-| PUT | `/inspecting/kalkukasi/mkl-bj/{id}` | Kalkulasi MKL/BJ |
-| PUT | `/inspecting/update-inspecting/{id}` | Ubah header (`wo_id`, `no_lot`, `jenis_inspek`, `no_memo`, `unit`, `warna`, `mo_id`, `sc_id`, `note`, `inspection_table`, ...) |
-| PUT | `/inspecting/update-inspecting-mklbj/{id}` | Ubah header MKL/BJ |
-| PUT | `/inspecting/update-inspecting-mklbj/item/{id}` | Ubah item MKL/BJ |
-| DELETE | `/inspecting/delete-inspecting-item/{id}` | Hapus item |
-| DELETE | `/inspecting/delete-inspecting-item-mklbj/{id}` | Hapus item MKL/BJ |
-| DELETE | `/inspecting/delete-all-defects/{id}` | Hapus semua defect satu inspecting |
-| DELETE | `/inspecting/delete-all-defects-mklbj/{id}` | Hapus semua defect MKL/BJ |
+| GET | `/inspecting/search-inspecting?jenis_process=&search=` | Cari data inspecting (`jenis_process`: `dyeing`, `printing`, atau `mkl-bj`; `search`: ID, nomor WO, atau lot) |
+| GET | `/inspecting/get-inspecting/{id}` | Detail inspecting kartu (dyeing / printing) beserta items dan defect |
+| GET | `/inspecting/get-inspecting-mkl-bj/{id}` | Detail inspecting MKL/BJ beserta items dan defect |
+| PUT | `/inspecting/get-inspecting/update/{id}` | Ubah data item inspecting (`InspectingItem`). Body: `qty`*, `grade`*, `join_piece`, `defect` (array), `stock_id`, `qty_bit`, `lot_no`, `gsm_item` |
+| PUT | `/inspecting/kalkukasi/{id}` | Hitung ulang grade item berdasarkan nilai poin defect. Body JSON array: `[{"nilai_poin": 20, "id": [{"inspecting_item_id": 1}]}]` |
+| PUT | `/inspecting/kalkukasi/mkl-bj/{id}` | Kalkulasi ulang data inspecting MKL/BJ |
+| PUT | `/inspecting/update-inspecting/{id}` | Ubah header inspecting dyeing/printing (`wo_id`*, `no_lot`*, `unit`*, `warna`*, `jenis_inspek`, `no_memo`, `mo_id`, `sc_id`, `sc_greige_id`, `note`, `inspection_table`, `kartu_proses_dyeing_id`, `kartu_proses_printing_id`) |
+| PUT | `/inspecting/update-inspecting-mklbj/{id}` | Ubah header inspecting MKL/BJ (`wo_id`*, `mo_color_id`*, `no_lot`*, `unit`*, `jenis_makloon`*, `jenis_inspek`, `no_memo`, `note`, `inspection_table`, `inspect_result`) |
+| PUT | `/inspecting/update-inspecting-mklbj/item/{id}` | Ubah item inspecting MKL/BJ (`InspectingMklbjItem`). Body: `qty`*, `grade`, `join_piece`, `lot_no`, `gsm_item`, `qty_bit`, `defect` (array: `id`, `mst_kode_defect_id`, `meterage`, `point`) |
+| DELETE | `/inspecting/delete-inspecting-item/{id}` | Hapus satu item inspecting (`InspectingItem`) beserta data defect terkait |
+| DELETE | `/inspecting/delete-inspecting-item-mklbj/{id}` | Hapus satu item inspecting MKL/BJ (`InspectingMklbjItem`) |
+| DELETE | `/inspecting/delete-all-defects/{id}` | Hapus semua defect pada satu inspecting header |
+| DELETE | `/inspecting/delete-all-defects-mklbj/{id}` | Hapus semua defect pada satu inspecting MKL/BJ header |
+
+*Catatan: Route `PUT /inspecting/inspecting-item/update/{id}` yang mengarah ke `DashboardController@updateInspectingItem` tidak aktif/belum diimplementasikan pada controller; gunakan `/inspecting/get-inspecting/update/{id}` untuk mengubah data item inspecting.*
 
 Pembuatan inspecting juga mencatat log aktivitas kartu (`ActionLogKartuDyeing`).
 
@@ -207,16 +208,16 @@ Filter umum: `no_kirim`, `buyer`, `design`, `start_date`, `end_date`, `no_lot`, 
 
 ### 5.9 Marketing (`/marketing`)
 
-| Method | Path | Parameter |
+| Method | Path | Parameter & Keterangan |
 |---|---|---|
-| GET | `/marketing/get-marketing` | Daftar marketing |
-| GET | `/marketing/outstanding` | `is_sisaan` — outstanding order dyeing |
-| GET | `/marketing/outstanding-printing` | `is_sisaan` — outstanding order printing |
-| GET | `/marketing/follow-sc` | Follow-up Sales Contract |
-| GET | `/marketing/kirim-buyer` | Data pengiriman ke buyer (termasuk retur) |
-| GET | `/marketing/sales-contract` | `tipe_kontrak`, `start_date`, `end_date`, `customer_id`, `marketing_id`, `status`, `sc_no`, `po_no`, `search` |
-| POST | `/marketing/close-mo` | `mo_id`, `note` |
-| POST | `/marketing/reopen-mo` | `mo_id` |
+| GET | `/marketing/get-marketing` | Mengambil daftar staf marketing aktif (`status = 10` pada `trn_sc`). Response: `[{"id": 1, "name": "Nama Marketing"}]` diurutkan berdasarkan nama. |
+| GET | `/marketing/outstanding` | Laporan outstanding order dyeing (`process = 1`).<br>**Query Parameters:**<br>- `start_date`* (date, `YYYY-MM-DD`): Tanggal awal SC<br>- `end_date`* (date, `YYYY-MM-DD`): Tanggal akhir SC<br>- `customer_id` (numeric) — *Wajib jika `marketing_id` kosong*<br>- `marketing_id` (numeric) — *Wajib jika `customer_id` kosong*<br>- `po_no` (string, optional): Filter nomor PO<br>- `no_wo` (string, optional): Filter nomor WO<br>- `wo_greige` (string, optional): Filter nama kain greige<br>- `is_sisaan` (boolean / `1`, optional): Jika aktif, hanya menampilkan MO status 3 (in-progress/sisaan). Jika tidak diisi atau filter nomor WO/PO aktif, menampilkan status 3 dan 5 (closed).<br>**Data Output:** Memuat data SC beserta MO, WO, detail warna, akumulasi hasil inspect per grade (A, A+, A*, B, C, PK, Sample) dari inspecting kartu dan MKL/BJ, total pengiriman buyer, retur buyer (menambah sisa), mutasi ex-finish, dan sisa outstanding order. |
+| GET | `/marketing/outstanding-printing` | Laporan outstanding order printing (`process = 2`). Parameter query dan struktur output sama persis dengan endpoint `outstanding`, khusus untuk proses printing. |
+| GET | `/marketing/follow-sc` | Follow-up Sales Contract (status 5) yang belum memiliki MO aktif (status 3) atau belum memiliki MO Color / WO Color.<br>**Query Parameters:**<br>- `customer_id`* (numeric)<br>- `start_date`* (date, `YYYY-MM-DD`)<br>- `end_date`* (date, `YYYY-MM-DD`)<br>- `marketing_id` (numeric, optional) |
+| GET | `/marketing/kirim-buyer` | Data rincian pengiriman ke buyer dan retur buyer per MO.<br>**Query Parameters:** `customer_id`, `start_date`, `end_date`, `po_no`, `no_wo`, `wo_greige`, `sc_no` |
+| GET | `/marketing/sales-contract` | Daftar Sales Contract beserta ringkasan agregat (total meter, total yard, total amount).<br>**Query Parameters:**<br>- `tipe_kontrak` (`1` = Ekspor, `2` = Lokal)<br>- `start_date`, `end_date` (date, `YYYY-MM-DD`)<br>- `customer_id` (numeric)<br>- `marketing_id` (numeric)<br>- `status` (numeric: status SC)<br>- `sc_no`, `po_no`, `search` (string) |
+| POST | `/marketing/close-mo` | Close manual status Marketing Order (status MO diubah menjadi 5 / Closed).<br>**Header:** `Authorization: Bearer <token>`<br>**Body (JSON/Form):** `mo_id`* (numeric), `note` (string, optional - default: `'Close manual, Qty Sudah terpenuhi'`)<br>**Otorisasi:** Hanya staf marketing penanggung jawab SC terkait atau user dengan role `Developer`, `Super Admin`, `Direktur Marketing`, `Manager Marketing`. |
+| POST | `/marketing/reopen-mo` | Buka kembali status Marketing Order yang sebelumnya di-close (status MO diubah kembali menjadi 3 / Approved).<br>**Header:** `Authorization: Bearer <token>`<br>**Body (JSON/Form):** `mo_id`* (numeric)<br>**Otorisasi:** Sama dengan `close-mo`. |
 
 ## 6. Format Respons
 

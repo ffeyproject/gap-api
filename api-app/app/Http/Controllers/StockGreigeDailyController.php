@@ -31,6 +31,8 @@ class StockGreigeDailyController extends Controller
             'per_page' => 'nullable|integer|min:1|max:500',
             'only_incoming' => 'nullable|boolean',
             'auto_snapshot' => 'nullable|boolean',
+            'group_by_motif' => 'nullable|boolean',
+            'date_mode' => 'nullable|string',
         ]);
 
         $date = $request->input('date');
@@ -43,6 +45,8 @@ class StockGreigeDailyController extends Controller
         $perPage = (int)$request->input('per_page', 20);
         $onlyIncoming = filter_var($request->input('only_incoming', false), FILTER_VALIDATE_BOOLEAN);
         $autoSnapshot = filter_var($request->input('auto_snapshot', false), FILTER_VALIDATE_BOOLEAN);
+        $groupByMotif = filter_var($request->input('group_by_motif', false), FILTER_VALIDATE_BOOLEAN)
+            || ($request->input('date_mode') === 'month');
 
         // Jika requested auto_snapshot aktif, ambil snapshot terbaru sebelum memuat data
         if ($autoSnapshot) {
@@ -85,66 +89,127 @@ class StockGreigeDailyController extends Controller
                 ->get();
         });
 
-        $query = StockGreigeDaily::with([
-            'greige:id,nama_kain,alias,group_id',
-            'greigeGroup:id,nama_kain,lebar_kain',
-            'createdBy:id,username,full_name',
-            'updatedBy:id,username,full_name',
-        ]);
-
-        if (!empty($date)) {
-            $query->where('date', $date);
-        } elseif (!empty($startDate) && !empty($endDate)) {
-            $query->whereBetween('date', [$startDate, $endDate]);
-        }
-
-        if (!empty($greigeId)) {
-            $query->where('greige_id', $greigeId);
-        }
-
-        if (!empty($greigeGroupId)) {
-            $query->where('greige_group_id', $greigeGroupId);
-        }
-
-        if (!empty($asalGreige)) {
-            $query->where('asal_greige', $asalGreige);
-        }
-
+        $matchingGreigeIds = [];
         if (!empty($motif)) {
             $matchingGreigeIds = DB::table('mst_greige')
                 ->where('nama_kain', 'ILIKE', "%{$motif}%")
-                ->orWhere('alias', 'ILIKE', "%{$motif}%")
-                ->pluck('id');
-            $query->whereIn('greige_id', $matchingGreigeIds);
+                ->pluck('id')
+                ->toArray();
         }
 
-        // Jika hanya stok masuk aktif, filter di level query database sebelum paginate
-        if ($onlyIncoming) {
-            $query->whereExists(function ($sub) {
-                $sub->select(DB::raw(1))
-                    ->from('trn_stock_greige as tsg')
-                    ->whereColumn('tsg.date', 'trn_stock_greige_daily.date')
-                    ->whereColumn('tsg.greige_id', 'trn_stock_greige_daily.greige_id')
-                    ->whereColumn('tsg.asal_greige', 'trn_stock_greige_daily.asal_greige')
-                    ->where('tsg.jenis_gudang', StockGreigeDaily::JG_FRESH)
-                    ->where('tsg.status', StockGreigeDaily::STATUS_VALID);
-            });
-        }
+        if (!empty($startDate) && !empty($endDate) && $groupByMotif) {
+            // Mode Rekap Bulanan / Periode (1 baris per motif & asal_greige, tanpa duplikat harian)
+            $subQuery = DB::table('trn_stock_greige_daily')
+                ->select(DB::raw('MAX(id) as max_id'))
+                ->whereBetween('date', [$startDate, $endDate]);
 
-        $query->orderBy('date', 'desc')
-              ->orderBy('greige_id', 'asc')
-              ->orderBy('asal_greige', 'asc');
+            if (!empty($greigeId)) {
+                $subQuery->where('greige_id', $greigeId);
+            }
+            if (!empty($greigeGroupId)) {
+                $subQuery->where('greige_group_id', $greigeGroupId);
+            }
+            if (!empty($asalGreige)) {
+                $subQuery->where('asal_greige', $asalGreige);
+            }
+            if (!empty($motif)) {
+                $subQuery->whereIn('greige_id', $matchingGreigeIds);
+            }
 
-        if ($request->has('all') && filter_var($request->input('all'), FILTER_VALIDATE_BOOLEAN)) {
-            $records = $query->get();
-            $paginated = null;
+            if ($onlyIncoming) {
+                $subQuery->whereExists(function ($sub) use ($startDate, $endDate) {
+                    $sub->select(DB::raw(1))
+                        ->from('trn_stock_greige as tsg')
+                        ->whereColumn('tsg.greige_id', 'trn_stock_greige_daily.greige_id')
+                        ->whereColumn('tsg.asal_greige', 'trn_stock_greige_daily.asal_greige')
+                        ->whereBetween('tsg.date', [$startDate, $endDate])
+                        ->where('tsg.jenis_gudang', StockGreigeDaily::JG_FRESH)
+                        ->where('tsg.status', StockGreigeDaily::STATUS_VALID);
+                });
+            }
+
+            $subQuery->groupBy('greige_id', 'asal_greige');
+
+            $query = StockGreigeDaily::with([
+                'greige:id,nama_kain,alias,group_id',
+                'greigeGroup:id,nama_kain,lebar_kain',
+                'createdBy:id,username,full_name',
+                'updatedBy:id,username,full_name',
+            ])
+            ->join('mst_greige as mg', 'mg.id', '=', 'trn_stock_greige_daily.greige_id')
+            ->whereIn('trn_stock_greige_daily.id', $subQuery)
+            ->select('trn_stock_greige_daily.*')
+            ->orderBy('mg.nama_kain', 'asc')
+            ->orderBy('trn_stock_greige_daily.asal_greige', 'asc');
+
+            if ($request->has('all') && filter_var($request->input('all'), FILTER_VALIDATE_BOOLEAN)) {
+                $records = $query->get();
+                $paginated = null;
+            } else {
+                $paginated = $query->paginate($perPage);
+                $records = collect($paginated->items());
+            }
+
+            $this->computePeriodDifferences($records, $startDate, $endDate);
         } else {
-            $paginated = $query->paginate($perPage);
-            $records = collect($paginated->items());
-        }
+            // Mode harian normal (per tanggal / rincian log harian)
+            $query = StockGreigeDaily::with([
+                'greige:id,nama_kain,alias,group_id',
+                'greigeGroup:id,nama_kain,lebar_kain',
+                'createdBy:id,username,full_name',
+                'updatedBy:id,username,full_name',
+            ]);
 
-        // Hitung selisih dengan tanggal sebelumnya untuk motif & asal_greige yang sama
-        $this->computeDifferences($records);
+            if (!empty($date)) {
+                $query->where('date', $date);
+            } elseif (!empty($startDate) && !empty($endDate)) {
+                $query->whereBetween('date', [$startDate, $endDate]);
+            }
+
+            if (!empty($greigeId)) {
+                $query->where('greige_id', $greigeId);
+            }
+
+            if (!empty($greigeGroupId)) {
+                $query->where('greige_group_id', $greigeGroupId);
+            }
+
+            if (!empty($asalGreige)) {
+                $query->where('asal_greige', $asalGreige);
+            }
+
+            if (!empty($motif)) {
+                $query->whereIn('greige_id', $matchingGreigeIds);
+            }
+
+            // Jika hanya stok masuk aktif, filter di level query database sebelum paginate
+            if ($onlyIncoming) {
+                $query->whereExists(function ($sub) {
+                    $sub->select(DB::raw(1))
+                        ->from('trn_stock_greige as tsg')
+                        ->whereColumn('tsg.date', 'trn_stock_greige_daily.date')
+                        ->whereColumn('tsg.greige_id', 'trn_stock_greige_daily.greige_id')
+                        ->whereColumn('tsg.asal_greige', 'trn_stock_greige_daily.asal_greige')
+                        ->where('tsg.jenis_gudang', StockGreigeDaily::JG_FRESH)
+                        ->where('tsg.status', StockGreigeDaily::STATUS_VALID);
+                });
+            }
+
+            $query->orderBy('date', 'desc')
+                  ->orderBy('greige_id', 'asc')
+                  ->orderBy('asal_greige', 'asc');
+
+            if ($request->has('all') && filter_var($request->input('all'), FILTER_VALIDATE_BOOLEAN)) {
+                $records = $query->get();
+                $paginated = null;
+            } else {
+                $paginated = $query->paginate($perPage);
+                $records = collect($paginated->items());
+            }
+
+            // Hitung selisih dengan tanggal sebelumnya untuk motif & asal_greige yang sama
+            $this->computeDifferences($records);
+        }
 
         $totalStockHariIniM = (float)round($records->sum('stock_hari_ini_m'), 2);
         $totalStockHariIniRoll = (int)$records->sum('stock_hari_ini_roll');
@@ -270,7 +335,6 @@ class StockGreigeDailyController extends Controller
         if (!empty($motif)) {
             $matchingGreigeIds = DB::table('mst_greige')
                 ->where('nama_kain', 'ILIKE', "%{$motif}%")
-                ->orWhere('alias', 'ILIKE', "%{$motif}%")
                 ->pluck('id');
             $query->whereIn('tsgd.greige_id', $matchingGreigeIds);
         }
@@ -544,40 +608,78 @@ class StockGreigeDailyController extends Controller
         $asalGreige = $request->input('asal_greige');
         $motif = $request->input('motif');
 
-        $query = StockGreigeDaily::with(['greige', 'greigeGroup']);
+        $groupByMotif = filter_var($request->input('group_by_motif', false), FILTER_VALIDATE_BOOLEAN)
+            || ($request->input('date_mode') === 'month');
 
-        if (!empty($date)) {
-            $query->where('date', $date);
-        } elseif (!empty($startDate) && !empty($endDate)) {
-            $query->whereBetween('date', [$startDate, $endDate]);
-        }
-
-        if (!empty($greigeId)) {
-            $query->where('greige_id', $greigeId);
-        }
-
-        if (!empty($greigeGroupId)) {
-            $query->where('greige_group_id', $greigeGroupId);
-        }
-
-        if (!empty($asalGreige)) {
-            $query->where('asal_greige', $asalGreige);
-        }
-
+        $matchingGreigeIds = [];
         if (!empty($motif)) {
             $matchingGreigeIds = DB::table('mst_greige')
                 ->where('nama_kain', 'ILIKE', "%{$motif}%")
-                ->orWhere('alias', 'ILIKE', "%{$motif}%")
-                ->pluck('id');
-            $query->whereIn('greige_id', $matchingGreigeIds);
+                ->pluck('id')
+                ->toArray();
         }
 
-        $models = $query->orderBy('date', 'desc')
-            ->orderBy('greige_id', 'asc')
-            ->orderBy('asal_greige', 'asc')
-            ->get();
+        if (!empty($startDate) && !empty($endDate) && $groupByMotif) {
+            $subQuery = DB::table('trn_stock_greige_daily')
+                ->select(DB::raw('MAX(id) as max_id'))
+                ->whereBetween('date', [$startDate, $endDate]);
 
-        $this->computeDifferences($models);
+            if (!empty($greigeId)) {
+                $subQuery->where('greige_id', $greigeId);
+            }
+            if (!empty($greigeGroupId)) {
+                $subQuery->where('greige_group_id', $greigeGroupId);
+            }
+            if (!empty($asalGreige)) {
+                $subQuery->where('asal_greige', $asalGreige);
+            }
+            if (!empty($motif)) {
+                $subQuery->whereIn('greige_id', $matchingGreigeIds);
+            }
+
+            $subQuery->groupBy('greige_id', 'asal_greige');
+
+            $models = StockGreigeDaily::with(['greige', 'greigeGroup'])
+                ->join('mst_greige as mg', 'mg.id', '=', 'trn_stock_greige_daily.greige_id')
+                ->whereIn('trn_stock_greige_daily.id', $subQuery)
+                ->select('trn_stock_greige_daily.*')
+                ->orderBy('mg.nama_kain', 'asc')
+                ->orderBy('trn_stock_greige_daily.asal_greige', 'asc')
+                ->get();
+
+            $this->computePeriodDifferences($models, $startDate, $endDate);
+        } else {
+            $query = StockGreigeDaily::with(['greige', 'greigeGroup']);
+
+            if (!empty($date)) {
+                $query->where('date', $date);
+            } elseif (!empty($startDate) && !empty($endDate)) {
+                $query->whereBetween('date', [$startDate, $endDate]);
+            }
+
+            if (!empty($greigeId)) {
+                $query->where('greige_id', $greigeId);
+            }
+
+            if (!empty($greigeGroupId)) {
+                $query->where('greige_group_id', $greigeGroupId);
+            }
+
+            if (!empty($asalGreige)) {
+                $query->where('asal_greige', $asalGreige);
+            }
+
+            if (!empty($motif)) {
+                $query->whereIn('greige_id', $matchingGreigeIds);
+            }
+
+            $models = $query->orderBy('date', 'desc')
+                ->orderBy('greige_id', 'asc')
+                ->orderBy('asal_greige', 'asc')
+                ->get();
+
+            $this->computeDifferences($models);
+        }
 
         $filename = 'rekap_stock_greige_harian_' . date('Ymd_His') . '.csv';
 
@@ -648,6 +750,106 @@ class StockGreigeDailyController extends Controller
 
             fclose($output);
         }, 200, $headers);
+    }
+
+    /**
+     * Menghitung nilai mutasi dan saldo awal untuk rekapan periode/bulanan per motif
+     * (1 baris per motif & asal_greige)
+     *
+     * @param \Illuminate\Support\Collection $items
+     * @param string $startDate
+     * @param string $endDate
+     */
+    protected function computePeriodDifferences($items, $startDate, $endDate)
+    {
+        if ($items->isEmpty()) {
+            return;
+        }
+
+        $greigeIds = $items->pluck('greige_id')->unique()->values()->toArray();
+
+        // 1. Prefetch total penerimaan fisik dalam periode untuk seluruh motif pada halaman ini
+        $incomingRows = DB::table('trn_stock_greige')
+            ->select([
+                'greige_id',
+                'asal_greige',
+                DB::raw('COUNT(id) as total_roll'),
+                DB::raw('COALESCE(SUM(panjang_m), 0) as total_panjang'),
+                DB::raw('MIN(date) as min_date'),
+                DB::raw('MAX(date) as max_date'),
+            ])
+            ->where('jenis_gudang', StockGreigeDaily::JG_FRESH)
+            ->where('status', StockGreigeDaily::STATUS_VALID)
+            ->whereBetween('date', [$startDate, $endDate])
+            ->whereIn('greige_id', $greigeIds)
+            ->groupBy('greige_id', 'asal_greige')
+            ->get();
+
+        $incomingMap = [];
+        foreach ($incomingRows as $row) {
+            $key = "{$row->greige_id}_{$row->asal_greige}";
+            $incomingMap[$key] = [
+                'm' => (float)$row->total_panjang,
+                'roll' => (int)$row->total_roll,
+                'min_date' => $row->min_date,
+                'max_date' => $row->max_date,
+            ];
+        }
+
+        // 2. Prefetch snapshot terakhir sebelum startDate untuk setiap combo
+        $prevSub = DB::table('trn_stock_greige_daily')
+            ->select([
+                'greige_id',
+                'asal_greige',
+                DB::raw('MAX(date) as max_prev_date')
+            ])
+            ->where('date', '<', $startDate)
+            ->whereIn('greige_id', $greigeIds)
+            ->groupBy('greige_id', 'asal_greige');
+
+        $prevSnapshots = DB::table('trn_stock_greige_daily as tsgd')
+            ->joinSub($prevSub, 'ps', function ($join) {
+                $join->on('tsgd.greige_id', '=', 'ps.greige_id')
+                    ->on('tsgd.asal_greige', '=', 'ps.asal_greige')
+                    ->on('tsgd.date', '=', 'ps.max_prev_date');
+            })
+            ->select('tsgd.greige_id', 'tsgd.asal_greige', 'tsgd.date', 'tsgd.total_panjang', 'tsgd.total_roll')
+            ->get();
+
+        $prevMap = [];
+        foreach ($prevSnapshots as $ps) {
+            $key = "{$ps->greige_id}_{$ps->asal_greige}";
+            $prevMap[$key] = [
+                'total_panjang' => (float)$ps->total_panjang,
+                'total_roll' => (int)$ps->total_roll,
+                'date' => is_string($ps->date) ? substr($ps->date, 0, 10) : (string)$ps->date,
+            ];
+        }
+
+        foreach ($items as $item) {
+            $key = "{$item->greige_id}_{$item->asal_greige}";
+            $incM = isset($incomingMap[$key]) ? $incomingMap[$key]['m'] : 0.0;
+            $incRoll = isset($incomingMap[$key]) ? $incomingMap[$key]['roll'] : 0;
+
+            $item->stock_hari_ini_m = $incM;
+            $item->stock_hari_ini_roll = $incRoll;
+            $item->is_period_recap = true;
+
+            if (isset($prevMap[$key])) {
+                $item->prev_total_panjang = $prevMap[$key]['total_panjang'];
+                $item->prev_total_roll = $prevMap[$key]['total_roll'];
+                $item->prev_date = $prevMap[$key]['date'];
+            } else {
+                // Jika belum ada snapshot sebelum startDate, stok awal = saldo akhir dikurangi barang masuk
+                $item->prev_total_panjang = max(0, round((float)$item->total_panjang - $incM, 2));
+                $item->prev_total_roll = max(0, (int)$item->total_roll - $incRoll);
+                $item->prev_date = date('Y-m-d', strtotime($startDate . ' -1 day'));
+            }
+
+            $item->diff_panjang = round((float)$item->total_panjang - (float)$item->prev_total_panjang, 2);
+            $item->diff_roll = (int)$item->total_roll - (int)$item->prev_total_roll;
+            $item->is_stock_masuk = ($incM > 0 || $item->diff_panjang > 0);
+        }
     }
 
     /**
